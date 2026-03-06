@@ -1,0 +1,37 @@
+project:
+  name: Hotspot Batch
+  version: 1.0.0
+
+spring:
+  application:
+    name: batch
+
+  main:
+    web-application-type: none
+
+  profiles:
+    default: local
+
+  config:
+    import:
+      - classpath:postgres.yml
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+logging:
+  level:
+    root: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+logging:
+  level:
+    root: INFO
