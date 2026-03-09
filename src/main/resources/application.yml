@@ -9,6 +9,10 @@ spring:
   main:
     web-application-type: none
 
+  batch:
+    job:
+      enabled: false
+
   profiles:
     default: local
 
@@ -22,6 +26,10 @@ spring:
     activate:
       on-profile: local
 
+  batch:
+    jdbc:
+      initialize-schema: always
+
 logging:
   level:
     root: INFO
@@ -31,6 +39,10 @@ spring:
   config:
     activate:
       on-profile: dev
+
+  batch:
+    jdbc:
+      initialize-schema: always
 
 logging:
   level:
