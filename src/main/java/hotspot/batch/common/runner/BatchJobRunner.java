@@ -1,4 +1,4 @@
-package hotspot.batch.global.runner;
+package hotspot.batch.common.runner;
 
 import java.util.Map;
 import java.util.Optional;
