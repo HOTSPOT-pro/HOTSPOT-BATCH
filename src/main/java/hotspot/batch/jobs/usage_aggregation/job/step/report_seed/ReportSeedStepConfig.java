@@ -14,12 +14,14 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import hotspot.batch.common.listener.TimeBasedChunkListener;
+import hotspot.batch.jobs.usage_aggregation.job.UsageAggregationDateCalculator;
 import hotspot.batch.jobs.usage_aggregation.job.step.report_seed.dto.ReportSeedItem;
 import hotspot.batch.jobs.usage_aggregation.job.step.report_seed.dto.WeeklyReportSeedCommand;
 import hotspot.batch.jobs.usage_aggregation.job.step.report_seed.partition.ReportSeedPartitioner;
 import hotspot.batch.jobs.usage_aggregation.job.step.report_seed.processor.ReportSeedProcessor;
 import hotspot.batch.jobs.usage_aggregation.job.step.report_seed.reader.ReportSeedReader;
 import hotspot.batch.jobs.usage_aggregation.job.step.report_seed.writer.ReportSeedWriter;
+import hotspot.batch.jobs.usage_aggregation.repository.ReportTargetRepository;
 
 /**
  * Step1의 master/worker step 구성을 정의하는 설정.
@@ -37,6 +39,10 @@ public class ReportSeedStepConfig {
         this.timeBasedChunkListener = timeBasedChunkListener;
     }
 
+    /**
+     * Step1의 master step
+     * 파티션 범위를 계산해 worker step 실행을 분배
+     */
     @Bean
     public Step reportSeedStep(
             JobRepository jobRepository,
@@ -48,6 +54,10 @@ public class ReportSeedStepConfig {
                 .build();
     }
 
+    /**
+     * Step1의 worker step
+     * 파티션별 대상을 chunk 단위로 읽어 WeeklyReport seed row를 생성
+     */
     @Bean
     public Step reportSeedWorkerStep(
             JobRepository jobRepository,
@@ -56,7 +66,8 @@ public class ReportSeedStepConfig {
             ReportSeedProcessor reportSeedProcessor,
             ReportSeedWriter reportSeedWriter) {
         return new StepBuilder("reportSeedWorkerStep", jobRepository)
-                .<ReportSeedItem, WeeklyReportSeedCommand>chunk(CHUNK_SIZE, transactionManager)
+                .<ReportSeedItem, WeeklyReportSeedCommand>chunk(CHUNK_SIZE)
+                .transactionManager(transactionManager)
                 .reader(reportSeedReader)
                 .processor(reportSeedProcessor)
                 .writer(reportSeedWriter)
@@ -64,7 +75,9 @@ public class ReportSeedStepConfig {
                 .build();
     }
 
-    // [To-Do] 추후 로직 복잡하지면 분리 예정 (partition 범위 계산, retry/skip 등 추가 시)
+    /**
+     * master step이 worker step을 병렬 실행할 때 사용하는 partition handler
+     */
     @Bean
     public PartitionHandler reportSeedPartitionHandler(
             @Qualifier("reportSeedWorkerStep") Step reportSeedWorkerStep,
@@ -76,11 +89,19 @@ public class ReportSeedStepConfig {
         return partitionHandler;
     }
 
+    /**
+     * Step1 대상자를 id 범위 기준으로 나누는 partitioner
+     */
     @Bean
-    public ReportSeedPartitioner reportSeedPartitioner() {
-        return new ReportSeedPartitioner();
+    public ReportSeedPartitioner reportSeedPartitioner(
+            ReportTargetRepository reportTargetRepository,
+            UsageAggregationDateCalculator dateCalculator) {
+        return new ReportSeedPartitioner(reportTargetRepository, dateCalculator);
     }
 
+    /**
+     * worker step 병렬 처리를 위한 전용 task executor
+     */
     @Bean
     public TaskExecutor reportSeedTaskExecutor() {
         ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();

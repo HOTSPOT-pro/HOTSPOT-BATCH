@@ -38,7 +38,8 @@ public class UsageMetricsStepConfig {
             @Qualifier("usageMetricsProcessor") UsageMetricsProcessor usageMetricsProcessor,
             @Qualifier("usageMetricsWriter") UsageMetricsWriter usageMetricsWriter) {
         return new StepBuilder("usageMetricsStep", jobRepository)
-                .<UsageMetricsItem, UsageMetricsCommand>chunk(CHUNK_SIZE, transactionManager)
+                .<UsageMetricsItem, UsageMetricsCommand>chunk(CHUNK_SIZE)
+                .transactionManager(transactionManager)
                 .reader(usageMetricsReader)
                 .processor(usageMetricsProcessor)
                 .writer(usageMetricsWriter)
