@@ -13,8 +13,8 @@ import hotspot.batch.common.listener.JobResultListener;
 
 /**
  * Job1 : 사용량 집계 및 연산 Config
- * - Step1 : 대상자 선정 및 WeeklyReport row INSERT
- * - Stel2 : Redis 집계 + 지표 / 태그 / 점수 + 스냅샷 저장
+ * - Step1 : 대상자 선정 및 WeeklyReport row INSERT (Tasklet)
+ * - Step2 : Redis 집계 + 지표 / 태그 / 점수 + 스냅샷 저장 (Chunk)
  */
 @Configuration
 public class UsageAggregationJobConfig {
