@@ -6,10 +6,10 @@ import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import hotspot.batch.common.config.JobParameterValidator;
 import hotspot.batch.common.listener.JobResultListener;
-import hotspot.batch.common.listener.TimeBasedChunkListener;
 
 /**
  * Job1 : 사용량 집계 및 연산 Config
@@ -24,16 +24,16 @@ public class UsageAggregationJobConfig {
 
     public UsageAggregationJobConfig(
             JobParameterValidator jobParameterValidator,
-            JobResultListener jobResultListener,
-            TimeBasedChunkListener timeBasedChunkListener) {
+            JobResultListener jobResultListener) {
         this.jobParameterValidator = jobParameterValidator;
         this.jobResultListener = jobResultListener;
     }
 
     @Bean
-    public Job usageAggregationJob(JobRepository jobRepository,
-                                   Step reportSeedStep,
-                                   Step usageMetricsStep) {
+    public Job usageAggregationJob(
+            JobRepository jobRepository,
+            @Qualifier("reportSeedStep") Step reportSeedStep,
+            @Qualifier("usageMetricsStep") Step usageMetricsStep) {
         return new JobBuilder("usageAggregationJob", jobRepository)
                 .validator(jobParameterValidator)
                 .start(reportSeedStep)
