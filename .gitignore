@@ -36,5 +36,6 @@ out/
 ### VS Code ###
 .vscode/
 
-### Codex ###
+### CLI ###
 AGENTS.md
+GEMINI.md
