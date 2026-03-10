@@ -12,6 +12,5 @@ public record WeeklyReportSeedCommand(
         Long subId,
         LocalDate weekStartDate,
         LocalDate weekEndDate,
-        LocalDateTime createdDate,
         ReportStatus status) {
 }
