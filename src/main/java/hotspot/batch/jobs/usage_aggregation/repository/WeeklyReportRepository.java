@@ -28,9 +28,9 @@ public class WeeklyReportRepository {
                     sub_id,
                     week_start_date,
                     week_end_date,
-                    status
+                    report_status
                 )
-                select sub_id, :weekStartDate, :weekEndDate, :status
+                select sub_id, :weekStartDate, :weekEndDate, :reportStatus
                 from report_target
                 where is_active = true
                   and receive_day = :receiveDay
@@ -41,7 +41,7 @@ public class WeeklyReportRepository {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("weekStartDate", weekStartDate)
                 .addValue("weekEndDate", weekEndDate)
-                .addValue("status", ReportStatus.PENDING.name())
+                .addValue("reportStatus", ReportStatus.PENDING.name())
                 .addValue("receiveDay", receiveDay)
                 .addValue("baseDate", baseDate);
 

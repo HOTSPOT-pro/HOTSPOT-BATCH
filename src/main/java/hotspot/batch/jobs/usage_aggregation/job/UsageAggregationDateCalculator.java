@@ -34,7 +34,7 @@ public class UsageAggregationDateCalculator {
      * 기준일의 요일 문자열 반환 (예: "Tuesday")
      */
     public String getReceiveDay(LocalDate baseDate) {
-        return baseDate.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH);
+        return baseDate.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH).toUpperCase();
     }
 
     /**
