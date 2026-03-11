@@ -41,7 +41,7 @@ public class ReportSeedTasklet implements Tasklet {
         log.info("START ReportSeedTasklet - baseDate={}, receiveDay={}, weekStartDate={}, weekEndDate={}", 
                 baseDate, receiveDay, weekStartDate, weekEndDate);
 
-        int insertedCount = weeklyReportRepository.insertSeedReports(receiveDay, weekStartDate, weekEndDate);
+        int insertedCount = weeklyReportRepository.insertSeedReports(receiveDay, baseDate, weekStartDate, weekEndDate);
 
         log.info("END ReportSeedTasklet - insertedCount={}", insertedCount);
         
