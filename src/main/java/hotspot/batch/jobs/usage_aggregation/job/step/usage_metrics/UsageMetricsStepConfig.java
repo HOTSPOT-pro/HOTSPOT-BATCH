@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import hotspot.batch.common.config.BatchConstants;
 import hotspot.batch.common.listener.TimeBasedChunkListener;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageMetricsCommand;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageMetricsItem;
@@ -21,8 +22,6 @@ import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.writer.UsageM
  */
 @Configuration
 public class UsageMetricsStepConfig {
-
-    private static final int CHUNK_SIZE = 1000;
 
     private final TimeBasedChunkListener timeBasedChunkListener;
 
@@ -38,7 +37,7 @@ public class UsageMetricsStepConfig {
             @Qualifier("usageMetricsProcessor") UsageMetricsProcessor usageMetricsProcessor,
             @Qualifier("usageMetricsWriter") UsageMetricsWriter usageMetricsWriter) {
         return new StepBuilder("usageMetricsStep", jobRepository)
-                .<UsageMetricsItem, UsageMetricsCommand>chunk(CHUNK_SIZE)
+                .<UsageMetricsItem, UsageMetricsCommand>chunk(BatchConstants.CHUNK_SIZE)
                 .transactionManager(transactionManager)
                 .reader(usageMetricsReader)
                 .processor(usageMetricsProcessor)
