@@ -20,6 +20,7 @@ spring:
     import:
       - classpath:postgres.yml
       - classpath:redis.yml
+      - classpath:postgres-main.yml
 
 ---
 spring:
