@@ -3,12 +3,11 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD}
-      timeout: 30s
+      database: ${REDIS_DATABASE:0}
+      timeout: 2000ms
       lettuce:
-        shutdown-timeout: 100ms
         pool:
-          max-active: 50
-          max-idle: 20
-          min-idle: 5
-          max-wait: 1s
+          max-active: 32 # GRID_SIZE(8)보다 넉넉하게 설정하여 병목 방지
+          max-idle: 16
+          min-idle: 8
+          max-wait: 1000ms
