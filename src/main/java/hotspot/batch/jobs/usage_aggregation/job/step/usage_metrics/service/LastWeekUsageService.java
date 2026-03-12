@@ -1,5 +1,6 @@
 package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyReportSnapshot;
@@ -9,7 +10,7 @@ import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyRep
  */
 public interface LastWeekUsageService {
     /**
-     * sub_id 리스트를 받아 DB IN 절로 일괄 조회
+     * (subId -> lastReportDate) 맵을 받아 지난주 리포트 스냅샷을 일괄 조회
      */
-    Map<Long, WeeklyReportSnapshot> getBulkSnapshotList(List<Long> subIds);
+    Map<Long, WeeklyReportSnapshot> getBulkSnapshotList(Map<Long, LocalDate> lastReportDateMap);
 }

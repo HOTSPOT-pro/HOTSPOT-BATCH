@@ -7,8 +7,7 @@ import java.util.List;
  */
 public record UsageMetricsAggregationInput(
     ReportBasicInfo basicInfo,
-    UsageData thisWeekUsage,
     List<DailyAppUsage> weeklyAppUsage,
     List<DailyHourlyUsage> weeklyHourlyUsage,
-    WeeklyReportSnapshot lastWeekReport  // 지난주 리포트 DB 스냅샷
+    WeeklyReportSnapshot lastWeekReport
 ) {}
