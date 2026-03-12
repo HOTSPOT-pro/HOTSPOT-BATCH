@@ -10,7 +10,7 @@ import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
 import lombok.RequiredArgsConstructor;
 
 /**
- * weekly_report 테이블의 insert/upsert를 담당하는 JDBC repository
+ * weekly_report 테이블의 insert/update를 담당하는 JDBC repository
  */
 @Repository
 @RequiredArgsConstructor
@@ -26,14 +26,20 @@ public class WeeklyReportRepository {
         String sql = """
                 insert into weekly_report (
                     sub_id,
+                    name,
                     week_start_date,
                     week_end_date,
                     report_status
                 )
-                select sub_id, :weekStartDate, :weekEndDate, :reportStatus
+                select 
+                    sub_id, 
+                    name,
+                    :weekStartDate, 
+                    :weekEndDate, 
+                    :reportStatus
                 from report_target
                 where is_active = true
-                  and receive_day = :receiveDay
+                  and receive_day = :receiveDay d
                   and (last_report_date is null or last_report_date < :baseDate)
                 on conflict (sub_id, week_start_date) do nothing
                 """;
