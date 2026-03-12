@@ -38,7 +38,7 @@ HOTSPOT 서비스의 배치 전용 서버입니다.
 예시:
 
 ```bash
-.\gradlew.bat bootRun --args="--job.name=familyRemoveJob --yearMonth=202604"
+./gradlew bootRun --args="--job.name=familyRemoveJob --yearMonth=202604"
 ```
 
 지원 파라미터:
