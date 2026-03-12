@@ -39,7 +39,7 @@ public class WeeklyReportRepository {
                     :reportStatus
                 from report_target
                 where is_active = true
-                  and receive_day = :receiveDay d
+                  and receive_day = :receiveDay
                   and (last_report_date is null or last_report_date < :baseDate)
                 on conflict (sub_id, week_start_date) do nothing
                 """;
@@ -52,5 +52,23 @@ public class WeeklyReportRepository {
                 .addValue("baseDate", baseDate);
 
         return jdbcTemplate.update(sql, params);
+    }
+
+    /**
+     * Step2 파티셔닝을 위한 PENDING 상태의 report_id 최소값 조회
+     */
+    public Long findMinIdByStatus(ReportStatus status) {
+        String sql = "select min(report_id) from weekly_report where report_status = :status";
+        MapSqlParameterSource params = new MapSqlParameterSource("status", status.name());
+        return jdbcTemplate.queryForObject(sql, params, Long.class);
+    }
+
+    /**
+     * Step2 파티셔닝을 위한 PENDING 상태의 report_id 최대값 조회
+     */
+    public Long findMaxIdByStatus(ReportStatus status) {
+        String sql = "select max(report_id) from weekly_report where report_status = :status";
+        MapSqlParameterSource params = new MapSqlParameterSource("status", status.name());
+        return jdbcTemplate.queryForObject(sql, params, Long.class);
     }
 }
