@@ -9,6 +9,9 @@ import org.springframework.stereotype.Repository;
 import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
 import lombok.RequiredArgsConstructor;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * weekly_report 테이블의 insert/update를 담당하는 JDBC repository
  */
@@ -17,6 +20,25 @@ import lombok.RequiredArgsConstructor;
 public class WeeklyReportRepository {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+
+    /**
+     * 특정 유저들의 특정 날짜 기준 리포트 데이터를 벌크로 조회
+     */
+    public List<Map<String, Object>> findSnapshotsBySubIdsAndDate(List<Long> subIds, LocalDate startDate) {
+        String sql = """
+                select sub_id, summary_data, usage_list_data, tags, total_score, score_level
+                from weekly_report
+                where sub_id in (:subIds)
+                  and week_start_date = :startDate
+                  and report_status = 'AGGREGATED'
+                """;
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("subIds", subIds)
+                .addValue("startDate", startDate);
+
+        return jdbcTemplate.queryForList(sql, params);
+    }
 
     /**
      * Step1에서 생성한 WeeklyReport seed 데이터를 bulk SQL로 삽입
