@@ -26,7 +26,7 @@
 
 역할:
 
-1. `family_remove_schedule`에서 도래 건 조회 (`SCHEDULED`, `schedule_date <= today`)
+1. `family_remove_schedule`에서 도래 건 조회 (`SCHEDULED`, `schedule_date <= 실행일`)
 2. `family_sub` 매핑 제거
 3. `policy_sub`, `blocked_service_sub` 비활성화(`is_active=false`)
 4. `family` 집계값 갱신 (`family_num`, `family_data_amount`)
