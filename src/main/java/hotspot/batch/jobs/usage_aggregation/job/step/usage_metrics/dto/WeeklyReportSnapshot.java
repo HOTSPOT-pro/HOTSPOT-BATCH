@@ -1,17 +1,15 @@
 package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto;
 
-import java.util.List;
 import lombok.Builder;
 
 /**
- * WeeklyReport JSONB 컬럼에 저장될 최종 결과물 스냅샷 (Java 17 Record)
+ * DB에서 읽어오는 지난주 리포트의 최종 스냅샷 정보
+ * 이번 주 지표와의 비교 및 점수 계산의 기준점으로 사용됨
  */
 @Builder
 public record WeeklyReportSnapshot(
-    Summary summary,
-    List<UsageItem> usageList,
-    List<String> tags,
+    long totalUsage,
     int totalScore,
-    String scoreLevel,
-    Comparison comparison // 지난주 대비 증감 정보
+    LastWeekSummaryData summaryData,
+    LastWeekUsageListData usageListData
 ) {}
