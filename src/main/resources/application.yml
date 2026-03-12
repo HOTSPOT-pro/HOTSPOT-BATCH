@@ -19,6 +19,7 @@ spring:
   config:
     import:
       - classpath:postgres.yml
+      - classpath:redis.yml
 
 ---
 spring:
