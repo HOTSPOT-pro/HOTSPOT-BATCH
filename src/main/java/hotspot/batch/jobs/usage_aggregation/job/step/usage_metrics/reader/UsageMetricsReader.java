@@ -1,6 +1,11 @@
 package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.reader;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 
 import javax.sql.DataSource;
 
@@ -19,6 +24,7 @@ import org.springframework.stereotype.Component;
 import hotspot.batch.common.config.BatchConstants;
 import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.DailyAppUsage;
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.DailyHourlyUsage;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageMetricsAggregationInput;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageData;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ReportBasicInfo;
@@ -26,10 +32,11 @@ import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyRep
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.LastWeekUsageService;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.ThisWeekUsageService;
 import hotspot.batch.jobs.usage_aggregation.repository.ReportUsageAppRedisRepository;
+import hotspot.batch.jobs.usage_aggregation.repository.ReportUsageHourlyRedisRepository;
 
 /**
- * Step2: "Bulk Pre-fetching" 기능이 있는 Reader
- * 청크 단위로 데이터를 먼저 읽은 뒤, 이번 주/지난주 데이터를 일괄 조회 & 조합하여 반환함
+ * Step2: "Bulk Pre-fetching" 기능이 있는 Reader.
+ * 청크 단위로 데이터를 먼저 읽은 뒤, 이번 주(앱/시간대)/지난주 데이터를 일괄 조회 & 조합하여 반환함.
  */
 @Component
 @StepScope
@@ -39,6 +46,7 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
     private final ThisWeekUsageService thisWeekUsageService;
     private final LastWeekUsageService lastWeekUsageService;
     private final ReportUsageAppRedisRepository reportUsageAppRedisRepository;
+    private final ReportUsageHourlyRedisRepository reportUsageHourlyRedisRepository;
     
     private final Queue<UsageMetricsAggregationInput> buffer = new LinkedList<>();
 
@@ -47,12 +55,14 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
             ThisWeekUsageService thisWeekUsageService,
             LastWeekUsageService lastWeekUsageService,
             ReportUsageAppRedisRepository reportUsageAppRedisRepository,
+            ReportUsageHourlyRedisRepository reportUsageHourlyRedisRepository,
             @Value("#{stepExecutionContext['startId']}") Long startId,
             @Value("#{stepExecutionContext['endId']}") Long endId) {
 
         this.thisWeekUsageService = thisWeekUsageService;
         this.lastWeekUsageService = lastWeekUsageService;
         this.reportUsageAppRedisRepository = reportUsageAppRedisRepository;
+        this.reportUsageHourlyRedisRepository = reportUsageHourlyRedisRepository;
 
         Map<String, Object> parameters = Map.of(
                 "status", ReportStatus.PENDING.name(),
@@ -100,17 +110,32 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
         if (rawInfos.isEmpty()) return;
 
         List<Long> subIds = rawInfos.stream().map(ReportBasicInfo::subId).toList();
-        
-        // 기준 날짜 가져오기 (첫 번째 아이템 기준)
         ReportBasicInfo first = rawInfos.get(0);
 
-        // 1. (I/O) 이번 주 전체 사용량 벌크 조회
+        // 1. 이번 주 전체 사용량 벌크 조회
         Map<Long, UsageData> thisWeekMap = thisWeekUsageService.getBulkUsageList(subIds);
 
-        // 2. (I/O) 이번 주 일별/앱별 사용량 벌크 조회 (Redis Pipeline)
+        // 2. 이번 주 일별/앱별 사용량 벌크 조회 (ZSet)
         Map<Long, List<DailyAppUsage>> appUsageMap = reportUsageAppRedisRepository.findBulkWeeklyAppUsage(
                 subIds, first.weekStartDate(), first.weekEndDate());
 
+        // 3. 이번 주 일별/시간대별 사용량 벌크 조회 (Hash)
+        Map<Long, List<DailyHourlyUsage>> hourlyUsageMap = reportUsageHourlyRedisRepository.findBulkWeeklyHourlyUsage(
+                subIds, first.weekStartDate(), first.weekEndDate());
+
+        // 4. 지난주 리포트 벌크 조회
+        Map<Long, WeeklyReportSnapshot> lastWeekMap = lastWeekUsageService.getBulkSnapshotList(subIds);
+
+        // 5. 데이터 조합하여 버퍼 적재
+        for (ReportBasicInfo info : rawInfos) {
+            buffer.add(new UsageMetricsAggregationInput(
+                info,
+                thisWeekMap.get(info.subId()),
+                appUsageMap.getOrDefault(info.subId(), Collections.emptyList()),
+                hourlyUsageMap.getOrDefault(info.subId(), Collections.emptyList()),
+                lastWeekMap.get(info.subId())
+            ));
+        }
     }
 
     @Override

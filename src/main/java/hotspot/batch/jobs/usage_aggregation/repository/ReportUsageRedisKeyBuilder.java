@@ -21,6 +21,13 @@ public final class ReportUsageRedisKeyBuilder {
     }
 
     /**
+     * 3시간 단위 시간대별 사용량 Hash 키 생성: usage:3hourly:{subId}:{YYYYMMDD}
+     */
+    public static String dailyHourlyUsage(Long subId, LocalDate date) {
+        return "usage:3hourly:" + subId + ":" + date.format(YYYYMMDD);
+    }
+
+    /**
      * 월별 앱 사용량 ZSet 키 생성: usage:sub:{subId}:{YYYYMM}
      */
     public static String monthlyAppUsage(Long subId, LocalDate date) {
