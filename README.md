@@ -49,7 +49,7 @@ HOTSPOT 서비스의 배치 전용 서버입니다.
 
 ## familyRemoveJob 처리 흐름
 
-1. `family_remove_schedule`에서 `SCHEDULED && schedule_date <= 오늘` 조회
+1. `family_remove_schedule`에서 `SCHEDULED && schedule_date <= 실행일` 조회
 2. 대상 `family_sub` 제거
 3. 대상 회선의 `policy_sub`, `blocked_service_sub` 비활성화(`is_active=false`)
 4. `family.family_num`, `family.family_data_amount` 재계산
