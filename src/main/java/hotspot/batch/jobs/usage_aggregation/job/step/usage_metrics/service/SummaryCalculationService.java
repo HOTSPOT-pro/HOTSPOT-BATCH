@@ -1,6 +1,6 @@
 package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service;
 
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.Summary;
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.SummaryData;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageMetricsAggregationInput;
 
 /**
