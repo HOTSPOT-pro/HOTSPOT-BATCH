@@ -30,16 +30,16 @@ import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.LastW
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.ThisWeekUsageService;
 
 /**
- * Step2: "Bulk Pre-fetching" 기능이 있는 Reader.
- * 청크 단위로 데이터를 먼저 읽은 뒤, 이번 주/지난주 데이터를 일괄 조회 & 조합하여 반환한다.
+ * Step2: "Bulk Pre-fetching" 기능이 있는 Reader
+ * 청크 단위로 데이터를 먼저 읽은 뒤, 이번 주/지난주 데이터를 일괄 조회 & 조합하여 반환
  */
 @Component
 @StepScope
 public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregationInput> {
 
     private final JdbcPagingItemReader<ReportBasicInfo> delegate;
-    private final ThisWeekUsageService thisWeekUsageService;
-    private final LastWeekUsageService lastWeekUsageService;
+    private final ThisWeekUsageService thisWeekUsageService; // 이번주 사용량 조회
+    private final LastWeekUsageService lastWeekUsageService; // 지난주 WeekluReport 스냅샷
     
     private final Queue<UsageMetricsAggregationInput> buffer = new LinkedList<>();
 
