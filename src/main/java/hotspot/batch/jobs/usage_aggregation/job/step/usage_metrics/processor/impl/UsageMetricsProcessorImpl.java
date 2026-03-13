@@ -1,5 +1,6 @@
 package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.processor.impl;
 
+import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.SummaryData;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageMetricsAggregationInput;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyReport;
@@ -45,7 +46,7 @@ public class UsageMetricsProcessorImpl implements UsageMetricsProcessor {
                 // .tags(...)       // TagScoreService 결과
                 .summaryData(summaryData)
                 // .usageListData(...) // UsageAggregationService 결과 (별도 서비스로 분리 필요)
-                .reportStatus("AGGREGATED")
+                .reportStatus(ReportStatus.AGGREGATED.name())
                 .build();
     }
 }

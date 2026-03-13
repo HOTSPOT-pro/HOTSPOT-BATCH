@@ -21,6 +21,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ReportUsageHourlyRedisRepository {
 
+    private static final String HOURLY_USAGE_FIELD_FORMAT = "%02d_used";
+    private static final int HOUR_START = 0;
+    private static final int HOUR_END = 24;
+    private static final int HOUR_INTERVAL = 3;
+
     private final StringRedisTemplate redisTemplate;
 
     /**
@@ -78,8 +83,8 @@ public class ReportUsageHourlyRedisRepository {
         Map<Integer, Long> map = new HashMap<>();
         if (raw == null || raw.isEmpty()) return map;
 
-        for (int h = 0; h < 24; h += 3) {
-            String field = String.format("%02d_used", h);
+        for (int h = HOUR_START; h < HOUR_END; h += HOUR_INTERVAL) {
+            String field = String.format(HOURLY_USAGE_FIELD_FORMAT, h);
             byte[] value = raw.get(field.getBytes());
             // 데이터가 없는 경우 0L로 처리하여 연산의 안정성 확보
             map.put(h, value == null ? 0L : Long.parseLong(new String(value)));

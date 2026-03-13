@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import hotspot.batch.common.util.UsageCalculator;
 import org.springframework.stereotype.Service;
 
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.AppUsage;
@@ -71,7 +72,7 @@ public class SummaryCalculationServiceImpl implements SummaryCalculationService 
             .collect(Collectors.toMap(
                 usage -> LocalDate.parse(usage.date()),
                 usage -> usage.appUsageList().stream()
-                    .mapToLong(app -> Math.round(app.usedGb() * 1024 * 1024))
+                    .mapToLong(app -> UsageCalculator.gbToKb(app.usedGb()))
                     .sum()
             ));
 

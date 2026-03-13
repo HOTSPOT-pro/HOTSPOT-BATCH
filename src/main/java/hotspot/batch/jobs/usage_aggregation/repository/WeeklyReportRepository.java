@@ -30,12 +30,13 @@ public class WeeklyReportRepository {
                 from weekly_report
                 where sub_id in (:subIds)
                   and week_start_date = :startDate
-                  and report_status = 'AGGREGATED'
+                  and report_status = :reportStatus
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("subIds", subIds)
-                .addValue("startDate", startDate);
+                .addValue("startDate", startDate)
+                .addValue("reportStatus", ReportStatus.AGGREGATED.name());
 
         return jdbcTemplate.queryForList(sql, params);
     }

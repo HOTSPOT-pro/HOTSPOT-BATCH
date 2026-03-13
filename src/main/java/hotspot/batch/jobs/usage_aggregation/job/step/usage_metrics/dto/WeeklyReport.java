@@ -16,7 +16,7 @@ public record WeeklyReport(
     String scoreLevel,
     List<String> tags,
     SummaryData summaryData,
-    UsageListData usageListData,
+    LastWeekUsageListData usageListData,
     // TODO: AI 피드백 관련 필드 추가
     String reportStatus
 ) {}
