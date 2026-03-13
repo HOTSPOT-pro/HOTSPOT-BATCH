@@ -11,7 +11,11 @@ public final class BatchConstants {
 
     /**
      * 기본 Chunk 처리 크기
-     * DB 부하와 메모리 효율을 고려한 권장값 (1,000건 단위)
      */
     public static final int CHUNK_SIZE = 1000;
+
+    /**
+     * 기본 병렬 처리 스레드 수 (Grid Size)
+     */
+    public static final int GRID_SIZE = 8;
 }

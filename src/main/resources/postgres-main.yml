@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    main:
+      driver-class-name: org.postgresql.Driver
+      url: jdbc:postgresql://${HOTSPOT_DB_HOST:localhost}:${HOTSPOT_DB_PORT:5432}/${HOTSPOT_DB_NAME:hotspot}
+      username: ${HOTSPOT_DB_USER:hotspot1}
+      password: ${HOTSPOT_DB_PASSWORD:hotspot1!}
+      hikari:
+        pool-name: HikariPool-main
+        max-lifetime: 300000
+        validation-timeout: 5000
+        keepalive-time: 30000
