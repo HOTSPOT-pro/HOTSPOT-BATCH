@@ -12,8 +12,7 @@ import lombok.Builder;
 public record WeeklyReport(
     Long reportId,
     long totalUsage,
-    int totalScore,
-    String scoreLevel,
+    ScoreResult scoreResult, // 점수, 등급, 사유를 모두 포함
     List<String> tags,
     SummaryData summaryData,
     LastWeekUsageListData usageListData,
