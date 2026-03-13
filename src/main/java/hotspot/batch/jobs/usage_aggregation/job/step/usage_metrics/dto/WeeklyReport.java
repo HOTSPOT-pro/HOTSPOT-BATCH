@@ -15,7 +15,7 @@ public record WeeklyReport(
     ScoreResult scoreResult, // 점수, 등급, 사유를 모두 포함
     List<String> tags,
     SummaryData summaryData,
-    LastWeekUsageListData usageListData,
+    UsageListData usageListData, // 이번 주 상세 리스트 데이터
     // TODO: AI 피드백 관련 필드 추가
     String reportStatus
 ) {}
