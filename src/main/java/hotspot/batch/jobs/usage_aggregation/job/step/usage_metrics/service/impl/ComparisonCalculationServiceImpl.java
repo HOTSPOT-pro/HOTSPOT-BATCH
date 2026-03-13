@@ -17,7 +17,6 @@ import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageComp
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageMetricsAggregationInput;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyReportSnapshot;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.ComparisonCalculationService;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.SummaryCalculationService;
 import lombok.RequiredArgsConstructor;
 
 /**
