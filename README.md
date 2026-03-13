@@ -143,4 +143,3 @@ HOTSPOT 서비스의 배치 전용 서버입니다.
 ## 참고 문서
 
 - 상세 개발 가이드: [`docs/BATCH_ARCHITECTURE_GUIDE.md`](docs/BATCH_ARCHITECTURE_GUIDE.md)
-
