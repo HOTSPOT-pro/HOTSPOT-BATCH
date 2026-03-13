@@ -2,7 +2,9 @@ package hotspot.batch.common.config;
 
 import javax.sql.DataSource;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.batch.jdbc.autoconfigure.BatchDataSource;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
@@ -18,23 +20,28 @@ public class DataSourceConfig {
 
     /**
      * 기본 DataSource (hotspot-batch DB)
-     * application.yml의 spring.datasource.hikari 설정을 사용
+     * application.yml의 spring.datasource 설정을 사용
      */
     @Primary
     @Bean
-    @ConfigurationProperties(prefix = "spring.datasource.hikari")
+    @BatchDataSource // 스프링 배치 메타 테이블 저장소로 명시적 지정
+    @ConfigurationProperties(prefix = "spring.datasource")
     public DataSource batchDataSource() {
-        return DataSourceBuilder.create().build();
+        return DataSourceBuilder.create()
+                .type(HikariDataSource.class)
+                .build();
     }
 
     /**
      * 보조 DataSource (hotspot 메인 DB)
-     * postgres-main.yml의 spring.datasource.main.hikari 설정을 사용
+     * postgres-main.yml의 spring.datasource.main 설정을 사용
      */
     @Bean
-    @ConfigurationProperties(prefix = "spring.datasource.main.hikari")
+    @ConfigurationProperties(prefix = "spring.datasource.main")
     public DataSource mainDataSource() {
-        return DataSourceBuilder.create().build();
+        return DataSourceBuilder.create()
+                .type(HikariDataSource.class)
+                .build();
     }
 
     /**
