@@ -65,7 +65,7 @@ public class UsageMetricsWriter extends JdbcBatchItemWriter<WeeklyReport> {
         ps.setObject(2, createPgObject(jsonConverter.toJson(item.scoreResult())));
         
         // 3. tags (VARCHAR[])
-        ps.setArray(3, createSqlArray(item.tags()));
+        ps.setArray(3, createSqlArray(item.tags(), ps));
         
         // 4. summary_data (JSONB)
         ps.setObject(4, createPgObject(jsonConverter.toJson(item.summaryData())));
@@ -93,10 +93,10 @@ public class UsageMetricsWriter extends JdbcBatchItemWriter<WeeklyReport> {
     /**
      * String 리스트를 PostgreSQL의 VARCHAR[] 타입으로 변환함
      */
-    private Array createSqlArray(List<String> tags) throws SQLException {
+    private Array createSqlArray(List<String> tags, PreparedStatement ps) throws SQLException {
         if (tags == null || tags.isEmpty()) {
-            return dataSource.getConnection().createArrayOf("varchar", new String[0]);
+            return ps.getConnection().createArrayOf("varchar", new String[0]);
         }
-        return dataSource.getConnection().createArrayOf("varchar", tags.toArray());
+        return ps.getConnection().createArrayOf("varchar", tags.toArray());
     }
 }
