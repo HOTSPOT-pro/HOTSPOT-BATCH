@@ -43,7 +43,7 @@ public class StepResultListener implements StepExecutionListener {
             log.error("STEP FAILED step={} job={} executionId={} status={} read={} write={} commit={} rollback={} filter={} durationMs={}",
                     stepName, jobName, executionId, status, readCount, writeCount, commitCount, rollbackCount, filterCount, durationMs);
         } else {
-            log.info("STEP FAILED step={} job={} executionId={} status={} read={} write={} commit={} rollback={} filter={} durationMs={}",
+            log.info("STEP SUCCESS step={} job={} executionId={} status={} read={} write={} commit={} rollback={} filter={} durationMs={}",
                     stepName, jobName, executionId, status, readCount, writeCount, commitCount, rollbackCount, filterCount, durationMs);
         }
 
