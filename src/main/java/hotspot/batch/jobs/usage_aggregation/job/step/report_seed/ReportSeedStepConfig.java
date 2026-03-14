@@ -15,6 +15,8 @@ import hotspot.batch.common.config.BatchConstants;
 import hotspot.batch.jobs.usage_aggregation.job.step.report_seed.dto.ReportSeedInput;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyReport;
 
+import hotspot.batch.common.listener.StepResultListener;
+
 /**
  * Step1: 리포트 생성 대상자 선정 및 Seed 데이터 생성 (Chunk 방식)
  * 메인 DB(hotspot)에서 데이터를 읽어 배치 DB(hotspot-batch)로 전송함
@@ -28,13 +30,15 @@ public class ReportSeedStepConfig {
             @Qualifier("batchTransactionManager") PlatformTransactionManager batchTransactionManager, // 배치 DB의 트랜잭션 매니저 주입
             JdbcPagingItemReader<ReportSeedInput> reportSeedReader,
             ItemProcessor<ReportSeedInput, WeeklyReport> reportSeedProcessor,
-            JdbcBatchItemWriter<WeeklyReport> reportSeedWriter) {
+            JdbcBatchItemWriter<WeeklyReport> reportSeedWriter,
+            StepResultListener stepResultListener) { // StepResultListener 주입
 
         return new StepBuilder("reportSeedStep", jobRepository)
                 .<ReportSeedInput, WeeklyReport>chunk(BatchConstants.CHUNK_SIZE, batchTransactionManager)
                 .reader(reportSeedReader)
                 .processor(reportSeedProcessor)
                 .writer(reportSeedWriter)
+                .listener(stepResultListener) // StepResultListener 추가
                 .build();
     }
 }

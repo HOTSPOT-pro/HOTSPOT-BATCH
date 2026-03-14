@@ -36,8 +36,8 @@ public class UsageAggregationJobConfig {
             @Qualifier("usageMetricsStep") Step usageMetricsStep) {
         return new JobBuilder("usageAggregationJob", jobRepository)
                 .validator(jobParameterValidator)
-                //.start(reportSeedStep)
-                .start(usageMetricsStep)
+                .start(reportSeedStep)
+                .next(usageMetricsStep)
                 .listener(jobResultListener)
                 .build();
     }

@@ -23,6 +23,8 @@ import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageMetr
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.partition.WeeklyReportPartitioner;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.reader.UsageMetricsReader;
 
+import hotspot.batch.common.listener.StepResultListener;
+
 /**
  * Step2: 지표 집계 및 스냅샷 생성 Step 설정.
  */
@@ -30,9 +32,12 @@ import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.reader.UsageM
 public class UsageMetricsStepConfig {
 
     private final TimeBasedChunkListener timeBasedChunkListener;
+    private final StepResultListener stepResultListener;
 
-    public UsageMetricsStepConfig(TimeBasedChunkListener timeBasedChunkListener) {
+    public UsageMetricsStepConfig(TimeBasedChunkListener timeBasedChunkListener,
+                                  StepResultListener stepResultListener) {
         this.timeBasedChunkListener = timeBasedChunkListener;
+        this.stepResultListener = stepResultListener;
     }
 
     /**
@@ -47,6 +52,7 @@ public class UsageMetricsStepConfig {
         return new StepBuilder("usageMetricsStep", jobRepository)
                 .partitioner("usageMetricsWorkerStep", weeklyReportPartitioner)
                 .partitionHandler(usageMetricsPartitionHandler)
+                .listener(stepResultListener) // Add StepResultListener here
                 .build();
     }
 
@@ -68,6 +74,7 @@ public class UsageMetricsStepConfig {
                 .processor(usageMetricsProcessor)
                 .writer(usageMetricsWriter)
                 .listener(timeBasedChunkListener)
+                .listener(stepResultListener) // Add StepResultListener here
                 .build();
     }
 
@@ -95,6 +102,8 @@ public class UsageMetricsStepConfig {
         executor.setCorePoolSize(BatchConstants.GRID_SIZE);
         executor.setMaxPoolSize(BatchConstants.GRID_SIZE);
         executor.setThreadNamePrefix("usage-metrics-");
+        executor.setWaitForTasksToCompleteOnShutdown(true); // 활성 태스크 완료 대기
+        executor.setAwaitTerminationSeconds(60);             // 60초까지 대기
         executor.initialize();
         return executor;
     }

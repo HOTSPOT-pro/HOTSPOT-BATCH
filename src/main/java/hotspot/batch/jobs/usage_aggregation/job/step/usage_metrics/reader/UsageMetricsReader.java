@@ -11,6 +11,8 @@ import java.util.stream.Collectors;
 
 import javax.sql.DataSource;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.infrastructure.item.ExecutionContext;
 import org.springframework.batch.infrastructure.item.ItemStreamException;
@@ -41,6 +43,8 @@ import hotspot.batch.jobs.usage_aggregation.repository.ReportUsageHourlyRedisRep
 @Component
 @StepScope
 public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregationInput> {
+
+    private static final Logger log = LoggerFactory.getLogger(UsageMetricsReader.class);
 
     private final JdbcPagingItemReader<ReportBasicInfo> delegate;
     private final LastWeekUsageService lastWeekUsageService;
@@ -111,11 +115,17 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
             rawInfos.add(info);
         }
 
-        if (rawInfos.isEmpty()) return;
+        if (rawInfos.isEmpty()) {
+            log.debug("fillBuffer: rawInfos is empty, returning.");
+            return;
+        }
 
         List<Long> subIds = rawInfos.stream().map(ReportBasicInfo::subId).toList();
         ReportBasicInfo first = rawInfos.get(0);
         
+        log.debug("fillBuffer: Processing subIds={} for weekStartDate={} to weekEndDate={}", 
+                  subIds, first.weekStartDate(), first.weekEndDate());
+
         // 3. 지난주 리포트 조회를 위한 날짜 매핑 (현재 주차 시작일의 7일 전으로 자동 계산)
         Map<Long, LocalDate> lastReportDateMap = rawInfos.stream()
             .collect(Collectors.toMap(ReportBasicInfo::subId, info -> info.weekStartDate().minusDays(7)));
@@ -123,13 +133,22 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
         // 4. 이번 주 일별/앱별 사용량 벌크 조회 (Redis ZSet)
         Map<Long, List<DailyAppUsage>> appUsageMap = reportUsageAppRedisRepository.findBulkWeeklyAppUsage(
                 subIds, first.weekStartDate(), first.weekEndDate());
+        log.debug("fillBuffer: appUsageMap fetched. size={}, first few keys: {}", 
+                  appUsageMap.size(), appUsageMap.keySet().stream().limit(5).collect(Collectors.toList()));
+
 
         // 5. 이번 주 일별/시간대별 사용량 벌크 조회 (Redis Hash)
         Map<Long, List<DailyHourlyUsage>> hourlyUsageMap = reportUsageHourlyRedisRepository.findBulkWeeklyHourlyUsage(
                 subIds, first.weekStartDate(), first.weekEndDate());
+        log.debug("fillBuffer: hourlyUsageMap fetched. size={}, first few keys: {}", 
+                  hourlyUsageMap.size(), hourlyUsageMap.keySet().stream().limit(5).collect(Collectors.toList()));
+
 
         // 6. 지난주 리포트 스냅샷 벌크 조회 (DB)
         Map<Long, WeeklyReportSnapshot> lastWeekMap = lastWeekUsageService.getBulkSnapshotList(lastReportDateMap);
+        log.debug("fillBuffer: lastWeekMap fetched. size={}, first few keys: {}", 
+                  lastWeekMap.size(), lastWeekMap.keySet().stream().limit(5).collect(Collectors.toList()));
+
 
         // 7. 모든 데이터를 조합하여 버퍼 적재
         for (ReportBasicInfo info : rawInfos) {
@@ -140,6 +159,7 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
                 lastWeekMap.get(info.subId())
             ));
         }
+        log.debug("fillBuffer: buffer filled with {} items.", buffer.size());
     }
 
     @Override

@@ -29,12 +29,19 @@ import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.AppCa
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.UsageAggregationService;
 import lombok.RequiredArgsConstructor;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+// ... other imports ...
+
 /**
  * 데이터 집계 계층: 이번 주 Raw 데이터를 분석하여 리포트에 필요한 모든 수치 지표를 생성함
  */
 @Service
 @RequiredArgsConstructor
 public class UsageAggregationServiceImpl implements UsageAggregationService {
+
+    private static final Logger log = LoggerFactory.getLogger(UsageAggregationServiceImpl.class);
 
     private final AppCategoryCache appCategoryCache;
 
@@ -49,14 +56,25 @@ public class UsageAggregationServiceImpl implements UsageAggregationService {
      */
     @Override
     public UsageAggregationResult aggregate(UsageMetricsAggregationInput input) {
+        log.debug("UsageAggregationService.aggregate: Processing input for subId={} weekStartDate={}",
+                  input.basicInfo().subId(), input.basicInfo().weekStartDate());
+        log.debug("  weeklyAppUsage size: {}", input.weeklyAppUsage().size());
+        log.debug("  weeklyHourlyUsage size: {}", input.weeklyHourlyUsage().size());
+
         // 1. 이번 주 총 사용량 계산
         long totalUsage = calculateTotalUsage(input);
+        log.debug("  Calculated totalUsage: {}", totalUsage);
 
         // 2. 요약 데이터(SummaryData) 생성
         SummaryData summaryData = createSummaryData(input);
+        log.debug("  Calculated summaryData: weekdayAvg={}, weekendAvg={}, lateNightUsage={}, studyTimeUsage={}",
+                  summaryData.dailySummary().weekdayAvg(), summaryData.dailySummary().weekendAvg(),
+                  summaryData.hourlySummary().lateNightUsage(), summaryData.hourlySummary().studyTimeUsage());
 
         // 3. 상세 리스트(UsageListData) 생성
         UsageListData usageListData = createUsageListData(input, totalUsage);
+        log.debug("  Calculated usageListData: totalUsage={}, dailyUsageListSize={}, hourlyUsageListSize={}",
+                  usageListData.totalUsage(), usageListData.dailyUsageList().size(), usageListData.hourlyUsageList().size());
 
         return UsageAggregationResult.builder()
                 .totalUsage(totalUsage)
