@@ -20,7 +20,7 @@ import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyRep
  * 분석이 완료된 WeeklyReport 데이터를 DB에 일괄 업데이트하는 Writer
  * 최신 DDL 기준: total_score, score_level 컬럼은 제외하고 score_data(JSONB)에 통합 저장함
  */
-@Component
+@Component("usageMetricsJdbcWriter")
 public class UsageMetricsWriter extends JdbcBatchItemWriter<WeeklyReport> {
 
     private final DataSource dataSource;

@@ -70,8 +70,7 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
         // 2. QueryProvider 설정: report_target JOIN을 제거하고 weekly_report 단일 테이블에서 필요한 정보를 모두 추출
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
         queryProvider.setSelectClause(
-            "weekly_report_id as weeklyReportId, family_id as familyId, sub_id as subId, name, " +
-            "week_start_date as weekStartDate, week_end_date as weekEndDate"
+            "weekly_report_id, family_id, sub_id, name, week_start_date, week_end_date"
         );
         queryProvider.setFromClause("from weekly_report");
         queryProvider.setWhereClause("where report_status = :status and weekly_report_id between :startId and :endId");

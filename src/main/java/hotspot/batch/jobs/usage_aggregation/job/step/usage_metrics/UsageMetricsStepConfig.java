@@ -3,6 +3,7 @@ package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics;
 
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyReport;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.processor.UsageMetricsProcessor;
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.writer.UsageMetricsWriter;
 import org.springframework.batch.core.partition.PartitionHandler;
 import org.springframework.batch.core.partition.support.TaskExecutorPartitionHandler;
 import org.springframework.batch.core.repository.JobRepository;
@@ -59,13 +60,13 @@ public class UsageMetricsStepConfig {
             PlatformTransactionManager transactionManager,
             UsageMetricsReader usageMetricsReader,
             UsageMetricsProcessor usageMetricsProcessor,
-            JdbcBatchItemWriter<WeeklyReport> usageMetricsJdbcWriter) {
+            UsageMetricsWriter usageMetricsWriter) {
         
         return new StepBuilder("usageMetricsWorkerStep", jobRepository)
                 .<UsageMetricsAggregationInput, WeeklyReport>chunk(BatchConstants.CHUNK_SIZE, transactionManager)
                 .reader(usageMetricsReader)
                 .processor(usageMetricsProcessor)
-                .writer(usageMetricsJdbcWriter)
+                .writer(usageMetricsWriter)
                 .listener(timeBasedChunkListener)
                 .build();
     }
