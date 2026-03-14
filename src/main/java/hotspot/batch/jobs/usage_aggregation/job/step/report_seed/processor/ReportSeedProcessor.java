@@ -1,4 +1,4 @@
-package hotspot.batch.jobs.usage_aggregation.job.step.report_seed;
+package hotspot.batch.jobs.usage_aggregation.job.step.report_seed.processor;
 
 import java.time.LocalDate;
 
@@ -11,21 +11,26 @@ import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
 import hotspot.batch.jobs.usage_aggregation.job.UsageAggregationDateCalculator;
 import hotspot.batch.jobs.usage_aggregation.job.step.report_seed.dto.ReportSeedInput;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyReport;
-import lombok.RequiredArgsConstructor;
 
 /**
  * Job1 - step1 - Processor
  * 읽어온 대상자 정보를 바탕으로 이번 주 리포트 분석 기간을 계산하고 시드 객체를 생성함
  */
+
 @Component
 @StepScope
-@RequiredArgsConstructor
 public class ReportSeedProcessor implements ItemProcessor<ReportSeedInput, WeeklyReport> {
 
     private final UsageAggregationDateCalculator dateCalculator;
+    private final String targetDate;
 
-    @Value("#{jobParameters['targetDate']}")
-    private String targetDate;
+    // @RequiredArgsConstructor 대신 명시적 생성자를 작성하여 JobParameter와 의존성을 동시에 안전하게 주입
+    public ReportSeedProcessor(
+            UsageAggregationDateCalculator dateCalculator,
+            @Value("#{jobParameters['targetDate']}") String targetDate) {
+        this.dateCalculator = dateCalculator;
+        this.targetDate = targetDate;
+    }
 
     @Override
     public WeeklyReport process(ReportSeedInput item) {
@@ -33,7 +38,6 @@ public class ReportSeedProcessor implements ItemProcessor<ReportSeedInput, Weekl
         LocalDate weekStartDate = dateCalculator.getWeekStartDate(baseDate);
         LocalDate weekEndDate = dateCalculator.getWeekEndDate(baseDate);
 
-        // 초기 Seed 데이터 생성 (필수 식별 정보 및 분석 기간 설정)
         return WeeklyReport.builder()
                 .familyId(item.familyId())
                 .subId(item.subId())
