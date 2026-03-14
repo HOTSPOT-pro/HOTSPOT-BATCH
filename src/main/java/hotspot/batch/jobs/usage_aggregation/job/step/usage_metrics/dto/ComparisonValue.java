@@ -1,8 +1,11 @@
 package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto;
 
+import lombok.Builder;
+
 /**
  * 수치의 차이(diff)와 변화율(changeRatePct)을 쌍으로 관리하는 공통 객체
  */
+@Builder
 public record ComparisonValue(
     long diff,
     double changeRatePct
