@@ -41,7 +41,9 @@ public class LastWeekUsageServiceImpl implements LastWeekUsageService {
         Map<Long, WeeklyReportSnapshot> resultMap = new HashMap<>();
         
         dateGroupedSubIds.forEach((date, subIds) -> {
-            List<Map<String, Object>> rows = weeklyReportRepository.findLastWeekSnapshotsForComparison(subIds, date);
+            log.info("[LastWeek-DB] Querying snapshots for {} subIds before current week start: {}", subIds.size(), date.plusDays(7));
+            List<Map<String, Object>> rows = weeklyReportRepository.findLastWeekSnapshotsForComparison(subIds, date.plusDays(7));
+            log.info("[LastWeek-DB] Found {} snapshot rows in DB.", rows.size());
             
             for (Map<String, Object> row : rows) {
                 try {

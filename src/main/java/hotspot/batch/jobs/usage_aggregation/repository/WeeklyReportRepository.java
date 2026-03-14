@@ -21,22 +21,24 @@ public class WeeklyReportRepository {
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     /**
-     * 특정 유저들의 특정 날짜 기준 리포트 데이터를 벌크로 조회함
-     * 지난주 스냅샷 조회를 위해 사용되며, 비교에 필요한 최소한의 컬럼만 선택함
+     * 특정 유저들의 현재 주차 시작일 이전 리포트 중 가장 최신 데이터를 벌크로 조회함
+     * 전주 대비 비교 분석을 위한 스냅샷 조회를 위해 사용됨
      */
-    public List<Map<String, Object>> findLastWeekSnapshotsForComparison(List<Long> subIds, LocalDate startDate) {
+    public List<Map<String, Object>> findLastWeekSnapshotsForComparison(List<Long> subIds, LocalDate currentStartDate) {
+        // PostgreSQL의 DISTINCT ON을 사용하여 유저별로 가장 최신의 이전 리포트 1개씩만 추출
         String sql = """
-                select sub_id, total_usage, summary_data, usage_list_data, score_data
+                select distinct on (sub_id) sub_id, total_usage, summary_data, usage_list_data, score_data
                 from weekly_report
                 where sub_id in (:subIds)
-                  and week_start_date = :startDate
+                  and week_start_date < :currentStartDate
                   and report_status = :reportStatus
+                order by sub_id, week_start_date desc
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("subIds", subIds)
-                .addValue("startDate", startDate)
-                .addValue("reportStatus", ReportStatus.AGGREGATED.name());
+                .addValue("currentStartDate", currentStartDate)
+                .addValue("reportStatus", ReportStatus.COMPLETED.name());
 
         return jdbcTemplate.queryForList(sql, params);
     }
