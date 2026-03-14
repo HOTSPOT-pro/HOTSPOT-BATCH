@@ -26,7 +26,7 @@ public class WeeklyReportRepository {
      */
     public List<Map<String, Object>> findLastWeekSnapshotsForComparison(List<Long> subIds, LocalDate startDate) {
         String sql = """
-                select sub_id, total_usage, total_score, summary_data, usage_list_data, score_data
+                select sub_id, total_usage, summary_data, usage_list_data, score_data
                 from weekly_report
                 where sub_id in (:subIds)
                   and week_start_date = :startDate

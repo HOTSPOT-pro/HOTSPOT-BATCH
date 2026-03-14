@@ -14,6 +14,5 @@ public record ReportBasicInfo(
     Long subId,
     String name,
     LocalDate weekStartDate,
-    LocalDate weekEndDate,
-    LocalDate lastReportDate
+    LocalDate weekEndDate
 ) {}
