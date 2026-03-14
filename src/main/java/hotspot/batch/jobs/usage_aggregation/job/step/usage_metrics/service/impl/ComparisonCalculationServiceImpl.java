@@ -140,7 +140,7 @@ public class ComparisonCalculationServiceImpl implements ComparisonCalculationSe
         double rate = calculateRate(thisWeekTotal, lastWeek.totalUsage());
         return KpiComparison.builder()
             .totalUsage(new ComparisonValue(diff, rate))
-            .scoreDiff(thisWeekScore - lastWeek.totalScore())
+            .scoreDiff(thisWeekScore - lastWeek.scoreResult().totalScore()) // lastWeek.totalScore() -> lastWeek.scoreResult().totalScore()
             .build();
     }
 
