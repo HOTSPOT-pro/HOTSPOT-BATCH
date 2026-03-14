@@ -26,11 +26,11 @@ public class WeeklyReportRepository {
      */
     public List<Map<String, Object>> findLastWeekSnapshotsForComparison(List<Long> subIds, LocalDate startDate) {
         String sql = """
-                select sub_id, total_usage, total_score, summary_data, usage_list_data
+                select sub_id, total_usage, total_score, summary_data, usage_list_data, score_data
                 from weekly_report
                 where sub_id in (:subIds)
                   and week_start_date = :startDate
-                  and report_status = :reportStatus
+                  and report_status = :reportStatus::report_status_enum
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
@@ -42,55 +42,19 @@ public class WeeklyReportRepository {
     }
 
     /**
-     * Step1에서 생성한 WeeklyReport seed 데이터를 bulk SQL로 삽입
-     * 100만 건 규모 처리를 위해 Java 레이어를 거치지 않고 DB 내부에서 직접 수행
-     */
-    public int insertSeedReports(String receiveDay, LocalDate baseDate, LocalDate weekStartDate, LocalDate weekEndDate) {
-        String sql = """
-                insert into weekly_report (
-                    sub_id,
-                    name,
-                    week_start_date,
-                    week_end_date,
-                    report_status
-                )
-                select 
-                    sub_id, 
-                    name,
-                    :weekStartDate, 
-                    :weekEndDate, 
-                    :reportStatus
-                from report_target
-                where is_active = true
-                  and receive_day = :receiveDay
-                  and (last_report_date is null or last_report_date < :baseDate)
-                on conflict (sub_id, week_start_date) do nothing
-                """;
-
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("weekStartDate", weekStartDate)
-                .addValue("weekEndDate", weekEndDate)
-                .addValue("reportStatus", ReportStatus.PENDING.name())
-                .addValue("receiveDay", receiveDay)
-                .addValue("baseDate", baseDate);
-
-        return jdbcTemplate.update(sql, params);
-    }
-
-    /**
-     * Step2 파티셔닝을 위한 PENDING 상태의 report_id 최소값 조회
+     * Step2 파티셔닝을 위한 PENDING 상태의 weekly_report_id 최소값 조회
      */
     public Long findMinIdByStatus(ReportStatus status) {
-        String sql = "select min(report_id) from weekly_report where report_status = :status";
+        String sql = "select min(weekly_report_id) from weekly_report where report_status = :status::report_status_enum";
         MapSqlParameterSource params = new MapSqlParameterSource("status", status.name());
         return jdbcTemplate.queryForObject(sql, params, Long.class);
     }
 
     /**
-     * Step2 파티셔닝을 위한 PENDING 상태의 report_id 최대값 조회
+     * Step2 파티셔닝을 위한 PENDING 상태의 weekly_report_id 최대값 조회
      */
     public Long findMaxIdByStatus(ReportStatus status) {
-        String sql = "select max(report_id) from weekly_report where report_status = :status";
+        String sql = "select max(weekly_report_id) from weekly_report where report_status = :status::report_status_enum";
         MapSqlParameterSource params = new MapSqlParameterSource("status", status.name());
         return jdbcTemplate.queryForObject(sql, params, Long.class);
     }

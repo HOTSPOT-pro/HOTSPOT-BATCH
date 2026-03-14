@@ -10,6 +10,7 @@ import lombok.Builder;
 @Builder
 public record ReportBasicInfo(
     Long weeklyReportId,
+    Long familyId,
     Long subId,
     String name,
     LocalDate weekStartDate,

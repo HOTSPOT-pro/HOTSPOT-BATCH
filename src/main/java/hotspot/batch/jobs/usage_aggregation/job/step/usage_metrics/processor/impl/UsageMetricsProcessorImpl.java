@@ -45,7 +45,10 @@ public class UsageMetricsProcessorImpl implements UsageMetricsProcessor {
 
         // 4. 최종 리포트 조립 및 반환
         return WeeklyReport.builder()
-                .reportId(input.basicInfo().weeklyReportId())
+                .weeklyReportId(input.basicInfo().weeklyReportId())
+                .familyId(input.basicInfo().familyId())
+                .subId(input.basicInfo().subId())
+                .name(input.basicInfo().name())
                 .totalUsage(agg.totalUsage())
                 .summaryData(agg.summaryData())
                 .usageListData(agg.usageListData())
