@@ -69,7 +69,8 @@ public class UsageMetricsStepConfig {
             UsageMetricsWriter usageMetricsWriter) {
         
         return new StepBuilder("usageMetricsWorkerStep", jobRepository)
-                .<UsageMetricsAggregationInput, WeeklyReport>chunk(BatchConstants.CHUNK_SIZE, transactionManager)
+                .<UsageMetricsAggregationInput, WeeklyReport>chunk(BatchConstants.CHUNK_SIZE)
+                .transactionManager(transactionManager)
                 .reader(usageMetricsReader)
                 .processor(usageMetricsProcessor)
                 .writer(usageMetricsWriter)

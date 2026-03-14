@@ -34,7 +34,8 @@ public class ReportSeedStepConfig {
             StepResultListener stepResultListener) { // StepResultListener 주입
 
         return new StepBuilder("reportSeedStep", jobRepository)
-                .<ReportSeedInput, WeeklyReport>chunk(BatchConstants.CHUNK_SIZE, batchTransactionManager)
+                .<ReportSeedInput, WeeklyReport>chunk(BatchConstants.CHUNK_SIZE)
+                .transactionManager(batchTransactionManager)
                 .reader(reportSeedReader)
                 .processor(reportSeedProcessor)
                 .writer(reportSeedWriter)
