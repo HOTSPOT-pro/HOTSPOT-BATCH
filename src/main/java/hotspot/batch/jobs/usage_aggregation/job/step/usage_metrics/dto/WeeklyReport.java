@@ -14,6 +14,8 @@ public record WeeklyReport(
     Long familyId,       // 가족 식별자
     Long subId,          // 유저 식별자
     String name,         // 유저 이름
+    LocalDate weekStartDate, // 분석 시작일
+    LocalDate weekEndDate,   // 분석 종료일
     long totalUsage,
     ScoreResult scoreResult, // 점수, 등급, 사유 통합
     List<String> tags,
