@@ -49,6 +49,8 @@ public class UsageMetricsProcessorImpl implements UsageMetricsProcessor {
                 .familyId(input.basicInfo().familyId())
                 .subId(input.basicInfo().subId())
                 .name(input.basicInfo().name())
+                .weekStartDate(input.basicInfo().weekStartDate())
+                .weekEndDate(input.basicInfo().weekEndDate())
                 .totalUsage(agg.totalUsage())
                 .summaryData(agg.summaryData())
                 .usageListData(agg.usageListData())
