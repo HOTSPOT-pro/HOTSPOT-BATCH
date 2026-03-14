@@ -67,12 +67,12 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
 
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
         queryProvider.setSelectClause(
-            "wr.report_id as weeklyReportId, wr.sub_id as subId, wr.name, " +
-            "wr.week_start_date as weekStartDate, wr.week_end_date as weekEndDate, rt.last_report_date as lastReportDate"
+            "weekly_report_id as weeklyReportId, family_id as familyId, sub_id as subId, name, " +
+            "week_start_date as weekStartDate, week_end_date as weekEndDate"
         );
-        queryProvider.setFromClause("from weekly_report wr left join report_target rt on wr.sub_id = rt.sub_id");
-        queryProvider.setWhereClause("where wr.report_status = :status and wr.report_id between :startId and :endId");
-        queryProvider.setSortKeys(Map.of("report_id", Order.ASCENDING));
+        queryProvider.setFromClause("from weekly_report");
+        queryProvider.setWhereClause("where report_status = :status::report_status_enum and weekly_report_id between :startId and :endId");
+        queryProvider.setSortKeys(Map.of("weekly_report_id", Order.ASCENDING));
 
         try {
             this.delegate = new JdbcPagingItemReaderBuilder<ReportBasicInfo>()
@@ -111,9 +111,9 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
         List<Long> subIds = rawInfos.stream().map(ReportBasicInfo::subId).toList();
         ReportBasicInfo first = rawInfos.get(0);
         
+        // 지난주 리포트의 시작일은 이번 주 시작일의 7일 전임
         Map<Long, LocalDate> lastReportDateMap = rawInfos.stream()
-            .filter(info -> info.lastReportDate() != null)
-            .collect(Collectors.toMap(ReportBasicInfo::subId, ReportBasicInfo::lastReportDate, (d1, d2) -> d1));
+            .collect(Collectors.toMap(ReportBasicInfo::subId, info -> info.weekStartDate().minusDays(7)));
 
         // 1. 이번 주 일별/앱별 사용량 벌크 조회 (ZSet)
         Map<Long, List<DailyAppUsage>> appUsageMap = reportUsageAppRedisRepository.findBulkWeeklyAppUsage(

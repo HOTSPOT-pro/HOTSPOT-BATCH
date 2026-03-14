@@ -46,9 +46,9 @@ public class UsageMetricsWriter {
                     tags = ?,
                     summary_data = ?,
                     usage_list_data = ?,
-                    report_status = ?,
+                    report_status = ?::report_status_enum,
                     modified_time = NOW()
-                WHERE report_id = ?
+                WHERE weekly_report_id = ?
                 """;
 
         return new JdbcBatchItemWriterBuilder<WeeklyReport>()
@@ -76,7 +76,7 @@ public class UsageMetricsWriter {
         ps.setObject(7, createPgObject(jsonConverter.toJson(item.usageListData())));
         
         ps.setString(8, ReportStatus.AGGREGATED.name());
-        ps.setLong(9, item.reportId());
+        ps.setLong(9, item.weeklyReportId());
     }
 
     /**
