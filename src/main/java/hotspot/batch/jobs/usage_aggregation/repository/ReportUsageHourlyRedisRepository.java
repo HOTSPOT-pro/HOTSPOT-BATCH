@@ -45,7 +45,7 @@ public class ReportUsageHourlyRedisRepository {
             dates.add(date);
         }
 
-        log.info("[Redis-Hourly] Fetching data for {} subIds from {} to {}", subIds.size(), startDate, endDate);
+        //log.info("[Redis-Hourly] Fetching data for {} subIds from {} to {}", subIds.size(), startDate, endDate);
 
         // 2. Redis Pipeline 실행: 1,000명 기준 7일치 Hash 데이터를 단일 네트워크 통신으로 조회
         List<Object> pipelineResults = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
@@ -86,7 +86,7 @@ public class ReportUsageHourlyRedisRepository {
             long userTotal = weeklyList.stream()
                     .flatMap(d -> d.hourlyUsage().values().stream())
                     .mapToLong(Long::longValue).sum();
-            log.info("[Redis-Hourly] SubId: {} - Total weekly hourly usage: {} KB", subId, userTotal);
+            //log.info("[Redis-Hourly] SubId: {} - Total weekly hourly usage: {} KB", subId, userTotal);
 
             finalMap.put(subId, weeklyList);
         }
