@@ -23,6 +23,7 @@ public class WeeklyReportRepository {
     /**
      * 특정 유저들의 현재 주차 시작일 이전 리포트 중 가장 최신 데이터를 벌크로 조회함
      * 전주 대비 비교 분석을 위한 스냅샷 조회를 위해 사용됨
+     * To-Do: ('AGGREGATED', 'COMPLETED') -> 테스트를 위해 둘다 허용했지만 추후 'COMPLETED'만 가능하도록 수정 필요
      */
     public List<Map<String, Object>> findLastWeekSnapshotsForComparison(List<Long> subIds, LocalDate currentStartDate) {
         // PostgreSQL의 DISTINCT ON을 사용하여 유저별로 가장 최신의 이전 리포트 1개씩만 추출
@@ -31,14 +32,13 @@ public class WeeklyReportRepository {
                 from weekly_report
                 where sub_id in (:subIds)
                   and week_start_date < :currentStartDate
-                  and report_status = :reportStatus
+                  and report_status in ('AGGREGATED', 'COMPLETED')
                 order by sub_id, week_start_date desc
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("subIds", subIds)
-                .addValue("currentStartDate", currentStartDate)
-                .addValue("reportStatus", ReportStatus.COMPLETED.name());
+                .addValue("currentStartDate", currentStartDate);
 
         return jdbcTemplate.queryForList(sql, params);
     }
