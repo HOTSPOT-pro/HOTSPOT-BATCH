@@ -46,12 +46,6 @@ public class UsageMetricsWriter extends JdbcBatchItemWriter<WeeklyReport> {
         this.setDataSource(dataSource);
         this.setSql(sql);
         this.setItemPreparedStatementSetter(this::setParameters);
-        
-        try {
-            this.afterPropertiesSet();
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to initialize UsageMetricsWriter", e);
-        }
     }
 
     /**

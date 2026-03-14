@@ -43,12 +43,12 @@ public class StepResultListener implements StepExecutionListener {
             log.error("STEP FAILED step={} job={} executionId={} status={} read={} write={} commit={} rollback={} filter={} durationMs={}",
                     stepName, jobName, executionId, status, readCount, writeCount, commitCount, rollbackCount, filterCount, durationMs);
         } else {
-            log.info("STEP FINISHED step={} job={} executionId={} status={} read={} write={} commit={} filter={} durationMs={}",
-                    stepName, jobName, executionId, status, readCount, writeCount, commitCount, filterCount, durationMs);
+            log.info("STEP FAILED step={} job={} executionId={} status={} read={} write={} commit={} rollback={} filter={} durationMs={}",
+                    stepName, jobName, executionId, status, readCount, writeCount, commitCount, rollbackCount, filterCount, durationMs);
         }
 
         if (stepExecution.getFailureExceptions() != null && !stepExecution.getFailureExceptions().isEmpty()) {
-            stepExecution.getFailureExceptions().forEach(e -> log.error("Step {} failed with exception: {}", stepName, e.getMessage()));
+            stepExecution.getFailureExceptions().forEach(e -> log.error("Step {} failed with exception: {}", stepName, e));
         }
         
         return stepExecution.getExitStatus();
