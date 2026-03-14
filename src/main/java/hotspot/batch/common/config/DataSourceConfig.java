@@ -2,13 +2,17 @@ package hotspot.batch.common.config;
 
 import javax.sql.DataSource;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.batch.jdbc.autoconfigure.BatchDataSource;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * 다중 DataSource(main, batch) 설정을 관리
@@ -18,23 +22,28 @@ public class DataSourceConfig {
 
     /**
      * 기본 DataSource (hotspot-batch DB)
-     * application.yml의 spring.datasource.hikari 설정을 사용
+     * application.yml의 spring.datasource 설정을 사용
      */
     @Primary
     @Bean
-    @ConfigurationProperties(prefix = "spring.datasource.hikari")
+    @BatchDataSource // 스프링 배치 메타 테이블 저장소로 명시적 지정
+    @ConfigurationProperties(prefix = "spring.datasource")
     public DataSource batchDataSource() {
-        return DataSourceBuilder.create().build();
+        return DataSourceBuilder.create()
+                .type(HikariDataSource.class)
+                .build();
     }
 
     /**
      * 보조 DataSource (hotspot 메인 DB)
-     * postgres-main.yml의 spring.datasource.main.hikari 설정을 사용
+     * postgres-main.yml의 spring.datasource.main 설정을 사용
      */
     @Bean
-    @ConfigurationProperties(prefix = "spring.datasource.main.hikari")
+    @ConfigurationProperties(prefix = "spring.datasource.main")
     public DataSource mainDataSource() {
-        return DataSourceBuilder.create().build();
+        return DataSourceBuilder.create()
+                .type(HikariDataSource.class)
+                .build();
     }
 
     /**
@@ -52,5 +61,23 @@ public class DataSourceConfig {
     @Bean
     public NamedParameterJdbcTemplate mainJdbcTemplate(@Qualifier("mainDataSource") DataSource dataSource) {
         return new NamedParameterJdbcTemplate(dataSource);
+    }
+
+    /**
+     * 기본 트랜잭션 매니저 (hotspot-batch DB용)
+     * StepBuilder에서 @Qualifier("batchTransactionManager")로 찾게 됩니다.
+     */
+    @Primary
+    @Bean
+    public PlatformTransactionManager batchTransactionManager(@Qualifier("batchDataSource") DataSource dataSource) {
+        return new DataSourceTransactionManager(dataSource);
+    }
+
+    /**
+     * 보조 트랜잭션 매니저 (hotspot 메인 DB용)
+     */
+    @Bean
+    public PlatformTransactionManager mainTransactionManager(@Qualifier("mainDataSource") DataSource dataSource) {
+        return new DataSourceTransactionManager(dataSource);
     }
 }

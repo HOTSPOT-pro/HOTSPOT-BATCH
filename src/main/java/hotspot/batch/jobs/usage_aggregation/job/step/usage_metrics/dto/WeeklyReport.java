@@ -10,13 +10,16 @@ import lombok.Builder;
  */
 @Builder
 public record WeeklyReport(
-    Long reportId,
+    Long weeklyReportId, // PK
+    Long familyId,       // 가족 식별자
+    Long subId,          // 유저 식별자
+    String name,         // 유저 이름
+    LocalDate weekStartDate, // 분석 시작일
+    LocalDate weekEndDate,   // 분석 종료일
     long totalUsage,
-    int totalScore,
-    String scoreLevel,
+    ScoreResult scoreResult, // 점수, 등급, 사유 통합
     List<String> tags,
     SummaryData summaryData,
-    LastWeekUsageListData usageListData,
-    // TODO: AI 피드백 관련 필드 추가
+    UsageListData usageListData, // 이번 주 상세 리스트
     String reportStatus
 ) {}

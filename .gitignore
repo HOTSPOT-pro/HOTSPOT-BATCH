@@ -39,3 +39,6 @@ out/
 ### CLI ###
 AGENTS.md
 GEMINI.md
+
+### Environment ###
+.env

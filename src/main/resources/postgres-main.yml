@@ -2,11 +2,41 @@ spring:
   datasource:
     main:
       driver-class-name: org.postgresql.Driver
-      url: jdbc:postgresql://${HOTSPOT_DB_HOST:localhost}:${HOTSPOT_DB_PORT:5432}/${HOTSPOT_DB_NAME:hotspot}
-      username: ${HOTSPOT_DB_USER:hotspot1}
-      password: ${HOTSPOT_DB_PASSWORD:hotspot1!}
+      jdbc-url: jdbc:postgresql://${HOTSPOT_DB_HOST:localhost}:${HOTSPOT_DB_PORT:5432}/${HOTSPOT_DB_NAME:hotspot}
+      username: ${HOTSPOT_DB_USER}
+      password: ${HOTSPOT_DB_PASSWORD}
       hikari:
         pool-name: HikariPool-main
         max-lifetime: 300000
         validation-timeout: 5000
         keepalive-time: 30000
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: true

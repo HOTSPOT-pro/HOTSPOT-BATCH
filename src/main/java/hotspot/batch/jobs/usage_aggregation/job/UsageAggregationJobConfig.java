@@ -13,7 +13,7 @@ import hotspot.batch.common.listener.JobResultListener;
 
 /**
  * Job1 : 사용량 집계 및 연산 Config
- * - Step1 : 대상자 선정 및 WeeklyReport row INSERT (Tasklet)
+ * - Step1 : 대상자 선정 및 WeeklyReport 시드 데이터 생성 (Chunk)
  * - Step2 : Redis 집계 + 지표 / 태그 / 점수 + 스냅샷 저장 (Chunk)
  */
 @Configuration
@@ -37,7 +37,7 @@ public class UsageAggregationJobConfig {
         return new JobBuilder("usageAggregationJob", jobRepository)
                 .validator(jobParameterValidator)
                 .start(reportSeedStep)
-                .next(usageMetricsStep)
+                //.next(usageMetricsStep)
                 .listener(jobResultListener)
                 .build();
     }
