@@ -30,24 +30,26 @@ public class ReportSeedReaderConfig {
 
         String receiveDay = dateCalculator.getReceiveDay(dateCalculator.getBaseDate(targetDate));
 
-        // 1. QueryProvider 설정 (PostgreSQL 전용)
+        // 1. QueryProvider 설정 (PostgreSQL 전용, 인라인 뷰 방식)
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
-        queryProvider.setSelectClause("fs.family_id, fs.sub_id, m.name");
+        queryProvider.setSelectClause("family_id, sub_id, name");
         queryProvider.setFromClause("""
-                from family_report fr
-                join family_sub fs on fr.family_id = fs.family_id
-                join subscription s on fs.sub_id = s.sub_id
-                join member m on s.member_id = m.member_id
-                """);
-        queryProvider.setWhereClause("""
-                fr.receive_day = :receiveDay 
-                and fr.is_active = true 
-                and m.is_deleted = false 
-                and s.is_deleted = false
+                (SELECT fs.family_id, fs.sub_id, m.name 
+                 FROM family_report fr
+                 JOIN family_sub fs ON fr.family_id = fs.family_id
+                 JOIN subscription s ON fs.sub_id = s.sub_id
+                 JOIN member m ON s.member_id = m.member_id
+                 WHERE fr.receive_day = :receiveDay 
+                   AND fr.is_active = true 
+                   AND m.is_deleted = false 
+                   AND s.is_deleted = false) AS target_data
                 """);
 
-        // 주의: org.springframework.batch.item.database.Order 임포트 필요
-        queryProvider.setSortKeys(Map.of("fs.sub_id", Order.ASCENDING));
+        // 바깥쪽 WHERE는 Spring Batch가 페이징을 위해 자동으로 관리하도록 null 처리
+        queryProvider.setWhereClause(null);
+
+        // 정렬 키는 이제 유일해진 sub_id 사용
+        queryProvider.setSortKeys(Map.of("sub_id", Order.ASCENDING));
 
         // 2. Builder를 이용한 Reader 생성 및 반환
         return new JdbcPagingItemReaderBuilder<ReportSeedInput>()

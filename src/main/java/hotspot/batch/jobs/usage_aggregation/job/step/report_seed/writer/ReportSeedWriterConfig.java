@@ -27,7 +27,7 @@ public class ReportSeedWriterConfig {
                 INSERT INTO weekly_report (
                     family_id, sub_id, name, week_start_date, week_end_date, report_status
                 ) VALUES (
-                    :familyId, :subId, :name, :weekStartDate, :weekEndDate, :reportStatus::report_status_enum
+                    :familyId, :subId, :name, :weekStartDate, :weekEndDate, :reportStatus
                 ) ON CONFLICT (sub_id, week_start_date) DO NOTHING
                 """;
 

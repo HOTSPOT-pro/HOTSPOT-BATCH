@@ -71,7 +71,7 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
             "week_start_date as weekStartDate, week_end_date as weekEndDate"
         );
         queryProvider.setFromClause("from weekly_report");
-        queryProvider.setWhereClause("where report_status = :status::report_status_enum and weekly_report_id between :startId and :endId");
+        queryProvider.setWhereClause("where report_status = :status and weekly_report_id between :startId and :endId");
         queryProvider.setSortKeys(Map.of("weekly_report_id", Order.ASCENDING));
 
         try {

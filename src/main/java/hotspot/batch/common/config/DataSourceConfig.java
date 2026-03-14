@@ -11,6 +11,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * 다중 DataSource(main, batch) 설정을 관리
@@ -59,5 +61,23 @@ public class DataSourceConfig {
     @Bean
     public NamedParameterJdbcTemplate mainJdbcTemplate(@Qualifier("mainDataSource") DataSource dataSource) {
         return new NamedParameterJdbcTemplate(dataSource);
+    }
+
+    /**
+     * 기본 트랜잭션 매니저 (hotspot-batch DB용)
+     * StepBuilder에서 @Qualifier("batchTransactionManager")로 찾게 됩니다.
+     */
+    @Primary
+    @Bean
+    public PlatformTransactionManager batchTransactionManager(@Qualifier("batchDataSource") DataSource dataSource) {
+        return new DataSourceTransactionManager(dataSource);
+    }
+
+    /**
+     * 보조 트랜잭션 매니저 (hotspot 메인 DB용)
+     */
+    @Bean
+    public PlatformTransactionManager mainTransactionManager(@Qualifier("mainDataSource") DataSource dataSource) {
+        return new DataSourceTransactionManager(dataSource);
     }
 }

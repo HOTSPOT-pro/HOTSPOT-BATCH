@@ -46,7 +46,7 @@ public class UsageMetricsWriter {
                     tags = ?,
                     summary_data = ?,
                     usage_list_data = ?,
-                    report_status = ?::report_status_enum,
+                    report_status = ?,
                     modified_time = NOW()
                 WHERE weekly_report_id = ?
                 """;

@@ -30,7 +30,7 @@ public class WeeklyReportRepository {
                 from weekly_report
                 where sub_id in (:subIds)
                   and week_start_date = :startDate
-                  and report_status = :reportStatus::report_status_enum
+                  and report_status = :reportStatus
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
@@ -45,7 +45,7 @@ public class WeeklyReportRepository {
      * Step2 파티셔닝을 위한 PENDING 상태의 weekly_report_id 최소값 조회
      */
     public Long findMinIdByStatus(ReportStatus status) {
-        String sql = "select min(weekly_report_id) from weekly_report where report_status = :status::report_status_enum";
+        String sql = "select min(weekly_report_id) from weekly_report where report_status = :status";
         MapSqlParameterSource params = new MapSqlParameterSource("status", status.name());
         return jdbcTemplate.queryForObject(sql, params, Long.class);
     }
@@ -54,7 +54,7 @@ public class WeeklyReportRepository {
      * Step2 파티셔닝을 위한 PENDING 상태의 weekly_report_id 최대값 조회
      */
     public Long findMaxIdByStatus(ReportStatus status) {
-        String sql = "select max(weekly_report_id) from weekly_report where report_status = :status::report_status_enum";
+        String sql = "select max(weekly_report_id) from weekly_report where report_status = :status";
         MapSqlParameterSource params = new MapSqlParameterSource("status", status.name());
         return jdbcTemplate.queryForObject(sql, params, Long.class);
     }
