@@ -8,7 +8,7 @@ import java.time.format.DateTimeFormatter;
  */
 public final class ReportUsageRedisKeyBuilder {
 
-    private static final String APP_USAGE_PREFIX = "usage:sub:";
+    private static final String APP_USAGE_PREFIX = "usage:app:";
     private static final String HOURLY_USAGE_PREFIX = "usage:3hourly:";
 
     private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd");
@@ -17,7 +17,7 @@ public final class ReportUsageRedisKeyBuilder {
     private ReportUsageRedisKeyBuilder() {}
 
     /**
-     * 일별 앱 사용량 ZSet 키 생성: usage:sub:{subId}:{YYYYMMDD}
+     * 일별 앱 사용량 ZSet 키 생성: usage:app:{subId}:{YYYYMMDD}
      */
     public static String dailyAppUsage(Long subId, LocalDate date) {
         return APP_USAGE_PREFIX + subId + ":" + date.format(YYYYMMDD);

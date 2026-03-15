@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreResult;
 import org.springframework.stereotype.Service;
 
 import hotspot.batch.common.util.JsonConverter;
@@ -41,7 +42,9 @@ public class LastWeekUsageServiceImpl implements LastWeekUsageService {
         Map<Long, WeeklyReportSnapshot> resultMap = new HashMap<>();
         
         dateGroupedSubIds.forEach((date, subIds) -> {
-            List<Map<String, Object>> rows = weeklyReportRepository.findLastWeekSnapshotsForComparison(subIds, date);
+            log.info("[LastWeek-DB] Querying snapshots for {} subIds before current week start: {}", subIds.size(), date.plusDays(7));
+            List<Map<String, Object>> rows = weeklyReportRepository.findLastWeekSnapshotsForComparison(subIds, date.plusDays(7));
+            log.info("[LastWeek-DB] Found {} snapshot rows in DB.", rows.size());
             
             for (Map<String, Object> row : rows) {
                 try {
@@ -62,9 +65,26 @@ public class LastWeekUsageServiceImpl implements LastWeekUsageService {
     private WeeklyReportSnapshot mapRowToSnapshot(Map<String, Object> row) {
         return WeeklyReportSnapshot.builder()
             .totalUsage(row.get("total_usage") != null ? ((Number) row.get("total_usage")).longValue() : 0L)
-            .totalScore(row.get("total_score") != null ? (Integer) row.get("total_score") : 0)
-            .summaryData(jsonConverter.fromJson((String) row.get("summary_data"), SummaryData.class))
-            .usageListData(jsonConverter.fromJson((String) row.get("usage_list_data"), LastWeekUsageListData.class))
+            .scoreResult(jsonConverter.fromJson(convertPgObjectToString(row.get("score_data")), ScoreResult.class)) // ScoreResult 객체로 변환
+            .summaryData(jsonConverter.fromJson(convertPgObjectToString(row.get("summary_data")), SummaryData.class))
+            .usageListData(jsonConverter.fromJson(convertPgObjectToString(row.get("usage_list_data")), LastWeekUsageListData.class))
             .build();
+    }
+
+    /**
+     * PostgreSQL의 JSONB 타입(PGobject)이나 String 타입을 안전하게 String으로 변환함
+     */
+    private String convertPgObjectToString(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof org.postgresql.util.PGobject pgObj) {
+            return pgObj.getValue();
+        }
+        // JDBC Template 설정에 따라 JSONB가 바로 String으로 넘어오는 경우도 처리
+        if (obj instanceof String s) {
+            return s;
+        }
+        // 예상치 못한 타입이므로 경고 로그를 남기고 null을 반환하여 JsonConverter가 처리하도록 함
+        log.warn("Unexpected type encountered for JSONB column: {}", obj.getClass().getName());
+        return null;
     }
 }

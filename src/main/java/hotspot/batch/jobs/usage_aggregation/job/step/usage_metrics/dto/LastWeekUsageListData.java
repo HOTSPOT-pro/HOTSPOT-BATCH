@@ -10,37 +10,7 @@ import lombok.Builder;
 @Builder
 public record LastWeekUsageListData(
     long totalUsage,
-    List<LastWeekDailyUsage> dailyUsageList,
-    List<LastWeekHourlyUsage> hourlyUsageList,
-    List<LastWeekCategoryUsage> categoryUsageList
-) {}
-
-/**
- * 지난주 일별 합산 사용량 정보
- */
-@Builder
-record LastWeekDailyUsage(
-    String date,
-    String day,
-    long totalUsage
-) {}
-
-/**
- * 지난주 시간대별 합산 사용량 정보 (심야/학습시간 속성 포함)
- */
-@Builder
-record LastWeekHourlyUsage(
-    int startHour,
-    boolean isLateNight,
-    boolean isStudyTime,
-    long totalUsage
-) {}
-
-/**
- * 지난주 카테고리별 합산 사용량 정보
- */
-@Builder
-record LastWeekCategoryUsage(
-    String category,
-    long usage
+    List<DailyUsageItem> dailyUsageList,
+    List<HourlyUsageItem> hourlyUsageList,
+    List<CategoryUsageItem> categoryUsageList
 ) {}

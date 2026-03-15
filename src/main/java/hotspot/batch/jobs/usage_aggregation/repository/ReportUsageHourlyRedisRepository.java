@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
@@ -20,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 @Repository
 @RequiredArgsConstructor
 public class ReportUsageHourlyRedisRepository {
+
+    private static final Logger log = LoggerFactory.getLogger(ReportUsageHourlyRedisRepository.class);
 
     private static final String HOURLY_USAGE_FIELD_FORMAT = "%02d_used";
     private static final int HOUR_START = 0;
@@ -40,6 +44,8 @@ public class ReportUsageHourlyRedisRepository {
         for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
             dates.add(date);
         }
+
+        //log.info("[Redis-Hourly] Fetching data for {} subIds from {} to {}", subIds.size(), startDate, endDate);
 
         // 2. Redis Pipeline 실행: 1,000명 기준 7일치 Hash 데이터를 단일 네트워크 통신으로 조회
         List<Object> pipelineResults = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
@@ -67,10 +73,21 @@ public class ReportUsageHourlyRedisRepository {
         for (Long subId : subIds) {
             List<DailyHourlyUsage> weeklyList = new ArrayList<>();
             for (LocalDate date : dates) {
-                // Redis Hash 결과(byte 매핑)를 맵으로 수신
-                Map<byte[], byte[]> rawMap = (Map<byte[], byte[]>) results.get(resultIndex++);
+                // Redis Hash 결과(String 매핑)를 맵으로 수신
+                Map<String, String> rawMap = (Map<String, String>) results.get(resultIndex++);
+
+                if (rawMap == null || rawMap.isEmpty()) {
+                    log.debug("[Redis-Hourly] No data found for subId: {}, date: {}", subId, date);
+                }
+
                 weeklyList.add(new DailyHourlyUsage(date.toString(), parseHourlyMap(rawMap)));
             }
+
+            long userTotal = weeklyList.stream()
+                    .flatMap(d -> d.hourlyUsage().values().stream())
+                    .mapToLong(Long::longValue).sum();
+            //log.info("[Redis-Hourly] SubId: {} - Total weekly hourly usage: {} KB", subId, userTotal);
+
             finalMap.put(subId, weeklyList);
         }
         return finalMap;
@@ -79,15 +96,15 @@ public class ReportUsageHourlyRedisRepository {
     /**
      * 00시부터 21시까지 3시간 단위 필드를 순회하며 사용량 데이터를 파싱함
      */
-    private Map<Integer, Long> parseHourlyMap(Map<byte[], byte[]> raw) {
+    private Map<Integer, Long> parseHourlyMap(Map<String, String> raw) {
         Map<Integer, Long> map = new HashMap<>();
         if (raw == null || raw.isEmpty()) return map;
 
         for (int h = HOUR_START; h < HOUR_END; h += HOUR_INTERVAL) {
             String field = String.format(HOURLY_USAGE_FIELD_FORMAT, h);
-            byte[] value = raw.get(field.getBytes());
+            String value = raw.get(field);
             // 데이터가 없는 경우 0L로 처리하여 연산의 안정성 확보
-            map.put(h, value == null ? 0L : Long.parseLong(new String(value)));
+            map.put(h, value == null ? 0L : Long.parseLong(value));
         }
         return map;
     }
