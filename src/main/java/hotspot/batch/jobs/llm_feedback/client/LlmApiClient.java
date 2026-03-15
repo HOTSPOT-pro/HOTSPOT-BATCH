@@ -9,7 +9,7 @@ import reactor.core.publisher.Mono;
  */
 public interface LlmApiClient {
     /**
-     * 리포트 데이터를 기반으로 AI 피드백 생성을 요청함 (비동기)
+     * 프롬프트를 기반으로 AI 피드백 생성을 요청함 (비동기)
      */
-    Mono<AiFeedback> generateFeedback(LlmFeedbackWeeklyReport report);
+    Mono<AiFeedback> generateFeedback(String prompt);
 }

@@ -33,10 +33,9 @@ public class LlmFeedbackProcessor {
             // 1. 프롬프트 생성
             String prompt = promptManager.createPrompt(item);
             
-            // 2. LLM API 호출 (비동기 Mono 응답을 block으로 기다림 - AsyncItemProcessor 스레드 내에서 동작)
-            // 실제 API 호출 로직은 OpenAiApiClient에 구현되어 있음
+            // 2. LLM API 호출
             try {
-                AiFeedback aiFeedback = llmApiClient.generateFeedback(item)
+                AiFeedback aiFeedback = llmApiClient.generateFeedback(prompt)
                         .block(); // 비동기 스레드 풀 내에서 실행되므로 block 가능
                 
                 if (aiFeedback == null) {
