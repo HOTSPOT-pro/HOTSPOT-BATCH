@@ -3,33 +3,26 @@ llm:
   job:
     # 한 번에 처리할 데이터의 단위 (Batch Chunk Size)
     chunk-size: ${LLM_JOB_CHUNK_SIZE:50}
-    # LLM 호출 실패 시 허용할 최대 건수 (이후 Job 중단)
+    # 비동기 처리를 위한 스레드 풀 사이즈 (I/O 병렬성 제어)
+    pool-size: ${LLM_JOB_POOL_SIZE:50}
+    # LLM 호출 실패 시 허용할 최대 건수
     skip-limit: ${LLM_JOB_SKIP_LIMIT:100}
     # LLM에게 전달할 프롬프트 템플릿 파일의 리소스 경로
     prompt-path: ${LLM_JOB_PROMPT_PATH:prompts/llm_feedback_v3.st}
 
   # OpenAI API 상세 설정
   openai:
-    # 비용 최적화를 위한 모델명 (gpt-4o-mini 권장)
     model: ${LLM_OPENAI_MODEL:gpt-4o-mini}
-    # OpenAI API Secret Key (보안을 위해 환경변수나 application-local.yml 활용)
     api-key: ${LLM_OPENAI_API_KEY:dummy-key}
-    # 답변의 창의성 조절 (0.7: 전문적이고 균형 잡힌 분석에 적합)
     temperature: ${LLM_OPENAI_TEMPERATURE:0.7}
-    # 답변의 최대 토큰 수 (비용 및 답변 길이 제어)
     max-tokens: ${LLM_OPENAI_MAX_TOKENS:1000}
-    # 프롬프트 및 응답 데이터 구조의 버전 관리용
     prompt-version: ${LLM_OPENAI_PROMPT_VERSION:v3.0}
   
   # WebClient 기반 비동기 통신 인프라 상세 설정
   client:
-    # API 서비스 기본 URL
     base-url: ${LLM_CLIENT_BASE_URL:https://api.openai.com}
-    # 외부 API 서버 연결 대기 시간
     connect-timeout-millis: ${LLM_CLIENT_CONNECT_TIMEOUT:5000}
-    # API 응답 대기 최대 시간 (LLM 생성 지연 대비 넉넉하게 60초 설정)
     read-timeout-millis: ${LLM_CLIENT_READ_TIMEOUT:60000}
-    # 비동기 동시 요청을 처리할 최대 커넥션 수
+    # 커넥션 풀 사이즈 (보통 pool-size보다 넉넉하게 설정)
     max-connections: ${LLM_CLIENT_MAX_CONNECTIONS:100}
-    # 커넥션 획득을 위해 대기할 수 있는 최대 요청 큐 크기
     pending-acquire-max-count: ${LLM_CLIENT_PENDING_MAX:500}

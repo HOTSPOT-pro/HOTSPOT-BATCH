@@ -6,6 +6,7 @@ import hotspot.batch.jobs.llm_feedback.config.LlmProperties;
 import hotspot.batch.jobs.llm_feedback.dto.AiFeedback;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
 import hotspot.batch.jobs.llm_feedback.dto.PromptMessages;
+import java.util.concurrent.ThreadPoolExecutor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
@@ -13,6 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.batch.integration.async.AsyncItemProcessor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
  * WeeklyReport를 기반으로 LLM 피드백을 생성하는 Processor 및 비동기 처리 설정
@@ -65,5 +67,23 @@ public class LlmFeedbackProcessor {
                 new AsyncItemProcessor<>(llmFeedbackProcessorDelegate());
         asyncProcessor.setTaskExecutor(llmFeedbackTaskExecutor);
         return asyncProcessor;
+    }
+
+    /**
+     * LLM 호출 전용 스레드 풀 생성
+     * - LlmProperties.job().poolSize()를 사용하여 병렬성 제어
+     */
+    @Bean
+    public TaskExecutor llmFeedbackTaskExecutor() {
+        int poolSize = properties.job().poolSize();
+        
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(poolSize);
+        executor.setMaxPoolSize(poolSize);
+        executor.setQueueCapacity(poolSize);
+        executor.setThreadNamePrefix("LlmFeedbackExecutor-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+        return executor;
     }
 }
