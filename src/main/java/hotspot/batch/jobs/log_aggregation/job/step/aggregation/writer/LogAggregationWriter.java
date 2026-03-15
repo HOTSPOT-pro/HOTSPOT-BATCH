@@ -194,9 +194,7 @@ public class LogAggregationWriter implements ItemWriter<UsageAppliedEventLogRow>
 
         node.fields().forEachRemaining(field -> {
             JsonNode child = field.getValue();
-            if (child != null && child.isNumber()) {
-                accumulator.merge(field.getKey(), child.longValue(), Long::sum);
-            } else {
+            if (child != null && (child.isObject() || child.isArray())) {
                 extractGiftUsageNode(child, accumulator);
             }
         });
