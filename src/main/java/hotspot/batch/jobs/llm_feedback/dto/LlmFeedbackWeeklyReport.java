@@ -1,7 +1,7 @@
 package hotspot.batch.jobs.llm_feedback.dto;
 
 import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreResult;
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreData;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.SummaryData;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageListData;
 import java.time.LocalDate;
@@ -20,7 +20,7 @@ public record LlmFeedbackWeeklyReport(
     LocalDate weekStartDate,
     LocalDate weekEndDate,
     long totalUsage,
-    ScoreResult scoreResult,
+    ScoreData scoreData,
     List<String> tags,
     SummaryData summaryData,
     UsageListData usageListData,
@@ -32,6 +32,9 @@ public record LlmFeedbackWeeklyReport(
     String aiModel,
     String promptVersion
 ) {
+    /**
+     * AI 피드백 결과를 포함한 새로운 리포트 객체 생성
+     */
     public LlmFeedbackWeeklyReport withAiFeedback(AiFeedback aiFeedback, String aiModel, String promptVersion) {
         return LlmFeedbackWeeklyReport.builder()
             .weeklyReportId(this.weeklyReportId)
@@ -41,7 +44,7 @@ public record LlmFeedbackWeeklyReport(
             .weekStartDate(this.weekStartDate)
             .weekEndDate(this.weekEndDate)
             .totalUsage(this.totalUsage)
-            .scoreResult(this.scoreResult)
+            .scoreData(this.scoreData)
             .tags(this.tags)
             .summaryData(this.summaryData)
             .usageListData(this.usageListData)

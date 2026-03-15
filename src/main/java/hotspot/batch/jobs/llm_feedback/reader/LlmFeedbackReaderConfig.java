@@ -3,7 +3,7 @@ package hotspot.batch.jobs.llm_feedback.reader;
 import hotspot.batch.common.util.JsonConverter;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
 import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreResult;
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreData;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.SummaryData;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageListData;
 import java.sql.ResultSet;
@@ -53,7 +53,7 @@ public class LlmFeedbackReaderConfig {
                 .dataSource(dataSource)
                 .queryProvider(createPagingQueryProvider())
                 .parameterValues(parameterValues)
-                .pageSize(chunkSize) // YAML에서 주입된 값 사용
+                .pageSize(chunkSize)
                 .rowMapper(llmFeedbackRowMapper())
                 .build();
     }
@@ -62,7 +62,7 @@ public class LlmFeedbackReaderConfig {
     public PagingQueryProvider createPagingQueryProvider() {
         SqlPagingQueryProviderFactoryBean queryProvider = new SqlPagingQueryProviderFactoryBean();
         queryProvider.setDataSource(dataSource);
-        queryProvider.setSelectClause("SELECT weekly_report_id, family_id, sub_id, name, week_start_date, week_end_date, total_usage, score_result, tags, summary_data, usage_list_data, report_status");
+        queryProvider.setSelectClause("SELECT weekly_report_id, family_id, sub_id, name, week_start_date, week_end_date, total_usage, score_data, tags, summary_data, usage_list_data, report_status");
         queryProvider.setFromClause("FROM weekly_report");
         queryProvider.setWhereClause("WHERE report_status = :status AND week_start_date = :targetDate::date");
         queryProvider.setSortKeys(Map.of("weekly_report_id", Order.ASCENDING));
@@ -83,7 +83,7 @@ public class LlmFeedbackReaderConfig {
                 .weekStartDate(rs.getObject("week_start_date", LocalDate.class))
                 .weekEndDate(rs.getObject("week_end_date", LocalDate.class))
                 .totalUsage(rs.getLong("total_usage"))
-                .scoreResult(jsonConverter.fromJson(rs.getString("score_result"), ScoreResult.class))
+                .scoreData(jsonConverter.fromJson(rs.getString("score_data"), ScoreData.class))
                 .tags(parseSqlArray(rs, "tags"))
                 .summaryData(jsonConverter.fromJson(rs.getString("summary_data"), SummaryData.class))
                 .usageListData(jsonConverter.fromJson(rs.getString("usage_list_data"), UsageListData.class))

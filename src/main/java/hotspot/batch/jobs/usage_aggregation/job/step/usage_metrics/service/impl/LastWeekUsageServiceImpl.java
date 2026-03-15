@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreResult;
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreData;
 import org.springframework.stereotype.Service;
 
 import hotspot.batch.common.util.JsonConverter;
@@ -65,7 +65,7 @@ public class LastWeekUsageServiceImpl implements LastWeekUsageService {
     private WeeklyReportSnapshot mapRowToSnapshot(Map<String, Object> row) {
         return WeeklyReportSnapshot.builder()
             .totalUsage(row.get("total_usage") != null ? ((Number) row.get("total_usage")).longValue() : 0L)
-            .scoreResult(jsonConverter.fromJson(convertPgObjectToString(row.get("score_data")), ScoreResult.class)) // ScoreResult 객체로 변환
+            .scoreData(jsonConverter.fromJson(convertPgObjectToString(row.get("score_data")), ScoreData.class)) // ScoreData 객체로 변환
             .summaryData(jsonConverter.fromJson(convertPgObjectToString(row.get("summary_data")), SummaryData.class))
             .usageListData(jsonConverter.fromJson(convertPgObjectToString(row.get("usage_list_data")), LastWeekUsageListData.class))
             .build();
