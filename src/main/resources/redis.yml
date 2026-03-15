@@ -4,7 +4,7 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       database: ${REDIS_DATABASE:0}
-      timeout: 2000ms
+      timeout: 10000ms # 10초
       lettuce:
         pool:
           max-active: 32 # GRID_SIZE(8)보다 넉넉하게 설정하여 병목 방지

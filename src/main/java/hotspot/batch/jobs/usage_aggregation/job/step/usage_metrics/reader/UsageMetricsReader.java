@@ -11,6 +11,8 @@ import java.util.stream.Collectors;
 
 import javax.sql.DataSource;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.infrastructure.item.ExecutionContext;
 import org.springframework.batch.infrastructure.item.ItemStreamException;
@@ -36,10 +38,13 @@ import hotspot.batch.jobs.usage_aggregation.repository.ReportUsageHourlyRedisRep
 
 /**
  * Step2: "Bulk Pre-fetching" 기능이 있는 Reader
+ * Step 1에서 생성된 PENDING 상태의 리포트 데이터를 읽어 분석 단계로 전달함
  */
 @Component
 @StepScope
 public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregationInput> {
+
+    private static final Logger log = LoggerFactory.getLogger(UsageMetricsReader.class);
 
     private final JdbcPagingItemReader<ReportBasicInfo> delegate;
     private final LastWeekUsageService lastWeekUsageService;
@@ -60,15 +65,16 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
         this.reportUsageAppRedisRepository = reportUsageAppRedisRepository;
         this.reportUsageHourlyRedisRepository = reportUsageHourlyRedisRepository;
 
+        // 1. 상태값 및 범위 파라미터 설정
         Map<String, Object> parameters = Map.of(
                 "status", ReportStatus.PENDING.name(),
                 "startId", startId,
                 "endId", endId);
 
+        // 2. QueryProvider 설정: report_target JOIN을 제거하고 weekly_report 단일 테이블에서 필요한 정보를 모두 추출
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
         queryProvider.setSelectClause(
-            "weekly_report_id as weeklyReportId, family_id as familyId, sub_id as subId, name, " +
-            "week_start_date as weekStartDate, week_end_date as weekEndDate"
+            "weekly_report_id, family_id, sub_id, name, week_start_date, week_end_date"
         );
         queryProvider.setFromClause("from weekly_report");
         queryProvider.setWhereClause("where report_status = :status and weekly_report_id between :startId and :endId");
@@ -97,6 +103,9 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
         return buffer.poll();
     }
 
+    /**
+     * Chunk 단위로 데이터를 미리 읽어와 Redis 및 지난주 데이터를 벌크로 채워 넣는 핵심 로직
+     */
     private void fillBuffer() throws Exception {
         List<ReportBasicInfo> rawInfos = new ArrayList<>();
         
@@ -106,27 +115,42 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
             rawInfos.add(info);
         }
 
-        if (rawInfos.isEmpty()) return;
+        if (rawInfos.isEmpty()) {
+            log.debug("fillBuffer: rawInfos is empty, returning.");
+            return;
+        }
 
         List<Long> subIds = rawInfos.stream().map(ReportBasicInfo::subId).toList();
         ReportBasicInfo first = rawInfos.get(0);
         
-        // 지난주 리포트의 시작일은 이번 주 시작일의 7일 전임
+        log.debug("fillBuffer: Processing subIds={} for weekStartDate={} to weekEndDate={}", 
+                  subIds, first.weekStartDate(), first.weekEndDate());
+
+        // 3. 지난주 리포트 조회를 위한 날짜 매핑 (현재 주차 시작일의 7일 전으로 자동 계산)
         Map<Long, LocalDate> lastReportDateMap = rawInfos.stream()
             .collect(Collectors.toMap(ReportBasicInfo::subId, info -> info.weekStartDate().minusDays(7)));
 
-        // 1. 이번 주 일별/앱별 사용량 벌크 조회 (ZSet)
+        // 4. 이번 주 일별/앱별 사용량 벌크 조회 (Redis ZSet)
         Map<Long, List<DailyAppUsage>> appUsageMap = reportUsageAppRedisRepository.findBulkWeeklyAppUsage(
                 subIds, first.weekStartDate(), first.weekEndDate());
+        log.debug("fillBuffer: appUsageMap fetched. size={}, first few keys: {}", 
+                  appUsageMap.size(), appUsageMap.keySet().stream().limit(5).collect(Collectors.toList()));
 
-        // 2. 이번 주 일별/시간대별 사용량 벌크 조회 (Hash)
+
+        // 5. 이번 주 일별/시간대별 사용량 벌크 조회 (Redis Hash)
         Map<Long, List<DailyHourlyUsage>> hourlyUsageMap = reportUsageHourlyRedisRepository.findBulkWeeklyHourlyUsage(
                 subIds, first.weekStartDate(), first.weekEndDate());
+        log.debug("fillBuffer: hourlyUsageMap fetched. size={}, first few keys: {}", 
+                  hourlyUsageMap.size(), hourlyUsageMap.keySet().stream().limit(5).collect(Collectors.toList()));
 
-        // 3. 지난주 리포트 벌크 조회
+
+        // 6. 지난주 리포트 스냅샷 벌크 조회 (DB)
         Map<Long, WeeklyReportSnapshot> lastWeekMap = lastWeekUsageService.getBulkSnapshotList(lastReportDateMap);
+        log.debug("fillBuffer: lastWeekMap fetched. size={}, first few keys: {}", 
+                  lastWeekMap.size(), lastWeekMap.keySet().stream().limit(5).collect(Collectors.toList()));
 
-        // 4. 데이터 조합하여 버퍼 적재
+
+        // 7. 모든 데이터를 조합하여 버퍼 적재
         for (ReportBasicInfo info : rawInfos) {
             buffer.add(new UsageMetricsAggregationInput(
                 info,
@@ -135,6 +159,7 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
                 lastWeekMap.get(info.subId())
             ));
         }
+        log.debug("fillBuffer: buffer filled with {} items.", buffer.size());
     }
 
     @Override

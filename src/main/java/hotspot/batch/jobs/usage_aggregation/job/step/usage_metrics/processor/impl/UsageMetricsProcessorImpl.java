@@ -34,24 +34,27 @@ public class UsageMetricsProcessorImpl implements UsageMetricsProcessor {
     public WeeklyReport process(UsageMetricsAggregationInput input) throws Exception {
         if (input == null) return null;
 
-        // 1. 데이터 집계 계층 (이번 주 수치 가공)
+        // 1. 데이터 집계 계층 (이번 주 수치 가공 - lastWeek은 0으로 초기화됨)
         UsageAggregationResult agg = usageAggregationService.aggregate(input);
 
-        // 2. 데이터 비교 계층 (지난주 vs 이번 주)
-        UsageComparisonResult comparison = comparisonCalculationService.calculate(input, agg.summaryData());
+        // 2. 데이터 비교 계층 (지난주 vs 이번 주 병합 및 비교 수치 산출)
+        // agg를 넘겨서 그 결과를 바탕으로 lastWeek 필드가 채워진 새로운 comparison을 얻음
+        UsageComparisonResult comparison = comparisonCalculationService.calculate(input, agg);
 
         // 3. 인사이트 분석 계층 (비즈니스 로직 적용)
         ReportInsight insight = reportInsightService.analyze(agg, comparison);
 
-        // 4. 최종 리포트 조립 및 반환
+        // 4. 최종 리포트 조립 및 반환 (비교 수치가 포함된 comparison의 데이터를 사용)
         return WeeklyReport.builder()
                 .weeklyReportId(input.basicInfo().weeklyReportId())
                 .familyId(input.basicInfo().familyId())
                 .subId(input.basicInfo().subId())
                 .name(input.basicInfo().name())
+                .weekStartDate(input.basicInfo().weekStartDate())
+                .weekEndDate(input.basicInfo().weekEndDate())
                 .totalUsage(agg.totalUsage())
-                .summaryData(agg.summaryData())
-                .usageListData(agg.usageListData())
+                .summaryData(comparison.summaryData()) // 비교 수치가 포함된 데이터
+                .usageListData(comparison.usageListData()) // lastWeek이 포함된 데이터
                 .scoreResult(insight.scoreResult())
                 .tags(insight.tags())
                 .reportStatus(ReportStatus.AGGREGATED.name())

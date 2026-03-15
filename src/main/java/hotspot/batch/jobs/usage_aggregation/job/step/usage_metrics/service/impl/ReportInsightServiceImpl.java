@@ -86,7 +86,8 @@ public class ReportInsightServiceImpl implements ReportInsightService {
             case ENTERTAINMENT_HIGH -> getCategoryRatio(summary, ENTERTAINMENT_CATEGORIES) >= ENTERTAINMENT_RATIO_MAX;
             case STUDY_LOW -> getCategoryRatio(summary, List.of(STUDY_CATEGORY)) <= STUDY_RATIO_MIN;
             case WEEKEND_BURST -> summary.dailySummary().weekdayAvg() > 0 && (summary.dailySummary().weekendAvg() / (double) summary.dailySummary().weekdayAvg() >= WEEKEND_BURST_MULTIPLIER);
-            case STUDY_FOCUS_UP -> comparison.categoryDiffs().stream().anyMatch(c -> STUDY_CATEGORY.equalsIgnoreCase(c.category()) && c.shareDiffPct() >= STUDY_FOCUS_UP_THRESHOLD);
+            case STUDY_FOCUS_UP -> comparison.usageListData().categoryUsageList().stream()
+                    .anyMatch(c -> STUDY_CATEGORY.equalsIgnoreCase(c.category()) && c.changeRate() >= STUDY_FOCUS_UP_THRESHOLD);
             case LOW_USAGE -> totalUsage > 0 && totalUsage < LOW_USAGE_THRESHOLD;
             case BALANCED_GOOD -> false;
         };
