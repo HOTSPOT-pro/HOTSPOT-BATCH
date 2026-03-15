@@ -16,6 +16,8 @@ llm:
     api-key: ${LLM_OPENAI_API_KEY:dummy-key}
     # 답변의 창의성 조절 (0.7: 전문적이고 균형 잡힌 분석에 적합)
     temperature: ${LLM_OPENAI_TEMPERATURE:0.7}
+    # 답변의 최대 토큰 수 (비용 및 답변 길이 제어)
+    max-tokens: ${LLM_OPENAI_MAX_TOKENS:1000}
     # 프롬프트 및 응답 데이터 구조의 버전 관리용
     prompt-version: ${LLM_OPENAI_PROMPT_VERSION:v1.0}
   
