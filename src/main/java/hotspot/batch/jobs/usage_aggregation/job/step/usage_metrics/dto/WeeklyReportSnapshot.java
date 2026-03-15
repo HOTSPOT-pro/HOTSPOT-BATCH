@@ -8,8 +8,8 @@ import lombok.Builder;
  */
 @Builder
 public record WeeklyReportSnapshot(
-    long totalUsage,
-    ScoreResult scoreResult, // totalScore 대신 ScoreResult 객체 사용
-    SummaryData summaryData,
-    LastWeekUsageListData usageListData
+        long totalUsage,
+        ScoreData scoreData, // totalScore 대신 ScoreData 객체 사용
+        SummaryData summaryData,
+        LastWeekUsageListData usageListData
 ) {}
