@@ -21,6 +21,7 @@ spring:
       - classpath:postgres.yml
       - classpath:redis.yml
       - classpath:postgres-main.yml
+      - classpath:resilience4j.yml
 
 ---
 spring:
