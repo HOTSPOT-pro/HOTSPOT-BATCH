@@ -4,6 +4,7 @@ import hotspot.batch.common.util.JsonConverter;
 import hotspot.batch.jobs.llm_feedback.config.LlmProperties;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
 import hotspot.batch.jobs.llm_feedback.dto.PromptMessages;
+import hotspot.batch.common.exception.LlmPromptTemplateLoadException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -57,7 +58,8 @@ public class PromptManager {
             ClassPathResource resource = new ClassPathResource(path);
             return StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new RuntimeException("프롬프트 템플릿 로드 실패: " + path, e);
+            // 범용 RuntimeException 대신 구체적인 도메인 예외 발생
+            throw new LlmPromptTemplateLoadException("프롬프트 템플릿 로드 실패", path, e);
         }
     }
 }
