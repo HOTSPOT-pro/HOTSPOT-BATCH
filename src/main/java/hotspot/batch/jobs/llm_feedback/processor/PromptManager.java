@@ -26,13 +26,14 @@ public class PromptManager {
     public String createPrompt(LlmFeedbackWeeklyReport report) {
         String template = loadTemplate(promptPath);
         
+        // 입력받은 JSON 스펙에 맞춰 데이터를 조합 (scoreData 반영)
         Map<String, Object> userData = Map.of(
             "subId", report.subId(),
             "name", report.name(),
             "weekStartDate", report.weekStartDate(),
             "weekEndDate", report.weekEndDate(),
             "overview", Map.of(
-                "scoreInfo", report.scoreResult(),
+                "scoreInfo", report.scoreData(),
                 "tags", report.tags()
             ),
             "usageDetails", report.summaryData()

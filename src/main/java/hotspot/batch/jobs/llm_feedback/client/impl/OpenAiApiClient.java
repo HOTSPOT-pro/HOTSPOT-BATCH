@@ -12,6 +12,7 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -25,6 +26,7 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Profile("!mock")
 public class OpenAiApiClient implements LlmApiClient {
 
     private final WebClient llmWebClient;
@@ -38,6 +40,9 @@ public class OpenAiApiClient implements LlmApiClient {
 
     @Value("${llm.openai.temperature}")
     private double temperature;
+
+    @Value("${llm.openai.max-tokens}")
+    private int maxTokens;
 
     /**
      * 프롬프트를 기반으로 OpenAI에 AI 피드백 생성을 요청함 (Reactive/비동기)
@@ -54,12 +59,12 @@ public class OpenAiApiClient implements LlmApiClient {
                 .model(model)
                 .messages(List.of(
                         // 시스템 메시지에 JSON 반환 지침을 포함해야 response_format 기능이 완벽히 작동함
-                        new ChatCompletionRequest.Message("system", 
+                        new ChatCompletionRequest.Message("system",
                             "당신은 아동 스마트폰 사용 패턴 분석 전문가입니다. 반드시 JSON 구조로만 답변하세요."),
                         new ChatCompletionRequest.Message("user", prompt)
                 ))
                 .temperature(temperature)
-                // OpenAI API 서버 측에서 순수 JSON 오브젝트 반환을 강제함
+                .max_tokens(maxTokens) // YAML에서 주입받은 최대 토큰 수 설정
                 .response_format(Map.of("type", "json_object"))
                 .build();
 

@@ -1,5 +1,6 @@
 package hotspot.batch.jobs.llm_feedback.reader;
 
+import hotspot.batch.common.config.BatchConstants;
 import hotspot.batch.common.util.JsonConverter;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
 import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
@@ -45,7 +46,7 @@ public class LlmFeedbackReaderConfig {
             @Value("#{jobParameters[targetDate]}") String targetDate) throws Exception {
         
         Map<String, Object> parameterValues = new HashMap<>();
-        parameterValues.put("targetDate", targetDate);
+        // targetDate는 로그나 다른 용도로 쓰일 수 있어 남겨두되, 쿼리에서는 상태값만 사용
         parameterValues.put("status", ReportStatus.AGGREGATED.name());
 
         return new JdbcPagingItemReaderBuilder<LlmFeedbackWeeklyReport>()
@@ -62,9 +63,10 @@ public class LlmFeedbackReaderConfig {
     public PagingQueryProvider createPagingQueryProvider() {
         SqlPagingQueryProviderFactoryBean queryProvider = new SqlPagingQueryProviderFactoryBean();
         queryProvider.setDataSource(dataSource);
+        // 날짜 조건(week_start_date)을 제거하여 AGGREGATED 상태인 모든 데이터를 대상으로 함
         queryProvider.setSelectClause("SELECT weekly_report_id, family_id, sub_id, name, week_start_date, week_end_date, total_usage, score_data, tags, summary_data, usage_list_data, report_status");
         queryProvider.setFromClause("FROM weekly_report");
-        queryProvider.setWhereClause("WHERE report_status = :status AND week_start_date = :targetDate::date");
+        queryProvider.setWhereClause("WHERE report_status = :status");
         queryProvider.setSortKeys(Map.of("weekly_report_id", Order.ASCENDING));
         
         try {
