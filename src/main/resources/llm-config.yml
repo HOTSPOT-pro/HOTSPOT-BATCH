@@ -6,7 +6,7 @@ llm:
     # LLM 호출 실패 시 허용할 최대 건수 (이후 Job 중단)
     skip-limit: ${LLM_JOB_SKIP_LIMIT:100}
     # LLM에게 전달할 프롬프트 템플릿 파일의 리소스 경로
-    prompt-path: ${LLM_JOB_PROMPT_PATH:prompts/llm_feedback_v1.st}
+    prompt-path: ${LLM_JOB_PROMPT_PATH:prompts/llm_feedback_v3.st}
 
   # OpenAI API 상세 설정
   openai:
@@ -19,7 +19,7 @@ llm:
     # 답변의 최대 토큰 수 (비용 및 답변 길이 제어)
     max-tokens: ${LLM_OPENAI_MAX_TOKENS:2000}
     # 프롬프트 및 응답 데이터 구조의 버전 관리용
-    prompt-version: ${LLM_OPENAI_PROMPT_VERSION:v1.0}
+    prompt-version: ${LLM_OPENAI_PROMPT_VERSION:v3.0}
   
   # WebClient 기반 비동기 통신 인프라 상세 설정
   client:
