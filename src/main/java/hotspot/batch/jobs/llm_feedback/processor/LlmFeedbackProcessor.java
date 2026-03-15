@@ -47,15 +47,17 @@ public class LlmFeedbackProcessor {
                         .block(); 
                 
                 if (aiFeedback == null) {
-                    log.warn("AI Feedback generation failed for reportId: {}", item.weeklyReportId());
-                    return item; // 실패 시 데이터 상태를 변경하지 않고 그대로 반환 (Writer에서 무시됨)
+                    log.warn("AI Feedback generation failed for reportId: {}. Item will be filtered out.", item.weeklyReportId());
+                    // 실패 시 null을 반환하여 Spring Batch가 이 아이템을 Writer로 넘기지 않도록 필터링함
+                    return null;
                 }
 
                 // 3. 성공한 경우 AI 피드백을 바인딩하고 리포트 상태를 COMPLETED로 변경하여 반환
                 return item.withAiFeedback(aiFeedback, model, promptVersion);
             } catch (Exception e) {
-                log.error("Error during LLM processing for reportId: {}", item.weeklyReportId(), e);
-                // 에러 발생 시 SkipPolicy가 이 예외를 가로채어 해당 아이템만 건너뜀
+                log.error("Error during LLM processing for reportId: {}. Skipping item.", item.weeklyReportId(), e);
+                // 예외 발생 시 SkipPolicy가 동작하도록 예외를 던지거나, 
+                // Skip 정책 외의 상황에서 안전하게 필터링하고 싶다면 여기서도 null 반환 가능
                 throw e; 
             }
         };
