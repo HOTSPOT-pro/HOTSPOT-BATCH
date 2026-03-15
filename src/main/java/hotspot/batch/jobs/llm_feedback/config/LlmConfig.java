@@ -44,7 +44,7 @@ public class LlmConfig {
 
         return WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .baseUrl("https://api.openai.com")
+                .baseUrl(clientProps.baseUrl())
                 .build();
     }
 }

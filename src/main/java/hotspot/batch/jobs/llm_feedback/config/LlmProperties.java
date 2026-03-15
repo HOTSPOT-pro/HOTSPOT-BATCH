@@ -26,6 +26,7 @@ public record LlmProperties(
     ) {}
 
     public record Client(
+        String baseUrl,
         int connectTimeoutMillis,
         int readTimeoutMillis,
         int maxConnections,
