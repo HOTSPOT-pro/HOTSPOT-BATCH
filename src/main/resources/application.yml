@@ -21,6 +21,10 @@ spring:
       - classpath:postgres.yml
       - classpath:redis.yml
       - classpath:postgres-main.yml
+      - classpath:resilience4j.yml
+      - classpath:llm-config.yml
+      # 로컬 시크릿 파일 (파일이 없을 경우 대비하여 선택적 로드 옵션 추가)
+      - optional:classpath:application-local.yml
 
 ---
 spring:

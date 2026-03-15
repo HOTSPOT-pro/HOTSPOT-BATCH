@@ -55,7 +55,7 @@ public class UsageMetricsProcessorImpl implements UsageMetricsProcessor {
                 .totalUsage(agg.totalUsage())
                 .summaryData(comparison.summaryData()) // 비교 수치가 포함된 데이터
                 .usageListData(comparison.usageListData()) // lastWeek이 포함된 데이터
-                .scoreResult(insight.scoreResult())
+                .scoreData(insight.scoreData())
                 .tags(insight.tags())
                 .reportStatus(ReportStatus.AGGREGATED.name())
                 .build();

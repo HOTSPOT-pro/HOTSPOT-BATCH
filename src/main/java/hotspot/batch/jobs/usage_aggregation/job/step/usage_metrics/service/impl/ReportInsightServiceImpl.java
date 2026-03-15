@@ -9,7 +9,7 @@ import hotspot.batch.jobs.usage_aggregation.job.ReportTag;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.CategorySummaryItem;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ReportInsight;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreReason;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreResult;
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreData;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.SummaryData;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageAggregationResult;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageComparisonResult;
@@ -54,10 +54,10 @@ public class ReportInsightServiceImpl implements ReportInsightService {
         List<ReportTag> tagList = generateTags(summary, comparison, totalUsage);
 
         // 2. 리포트 점수 계산
-        ScoreResult scoreResult = calculateScore(summary, comparison, totalUsage);
+        ScoreData scoreData = calculateScore(summary, comparison, totalUsage);
 
         return ReportInsight.builder()
-                .scoreResult(scoreResult)
+                .scoreData(scoreData)
                 .tags(tagList.stream().map(ReportTag::name).toList())
                 .build();
     }
@@ -96,7 +96,7 @@ public class ReportInsightServiceImpl implements ReportInsightService {
     /**
      * 5대 핵심 지표(사용량, 비중, 심야, 패턴, 개선도)를 정밀 분석하여 점수와 사유를 산출함
      */
-    private ScoreResult calculateScore(SummaryData summary, UsageComparisonResult comparison, long totalUsage) {
+    private ScoreData calculateScore(SummaryData summary, UsageComparisonResult comparison, long totalUsage) {
         List<ScoreReason> reasons = new ArrayList<>();
         int score = BASE_SCORE;
 
@@ -116,7 +116,7 @@ public class ReportInsightServiceImpl implements ReportInsightService {
         else if (sleepRatio > 25.0) { score -= 20; reasons.add(new ScoreReason(-20, "심각한 심야 과사용")); }
 
         int finalScore = Math.max(0, Math.min(100, score));
-        return ScoreResult.builder().totalScore(finalScore).scoreLevel(determineLevel(finalScore)).reasons(reasons).build();
+        return ScoreData.builder().totalScore(finalScore).scoreLevel(determineLevel(finalScore)).reasons(reasons).build();
     }
 
     /**

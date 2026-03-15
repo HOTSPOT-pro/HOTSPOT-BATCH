@@ -1,6 +1,5 @@
 package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.impl;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -140,7 +139,7 @@ public class ComparisonCalculationServiceImpl implements ComparisonCalculationSe
         double rate = calculateRate(thisWeekTotal, lastWeek.totalUsage());
         return KpiComparison.builder()
             .totalUsage(new ComparisonValue(diff, rate))
-            .scoreDiff(thisWeekScore - lastWeek.scoreResult().totalScore()) // lastWeek.totalScore() -> lastWeek.scoreResult().totalScore()
+            .scoreDiff(thisWeekScore - lastWeek.scoreData().totalScore()) // lastWeek.totalScore() -> lastWeek.scoreData().totalScore()
             .build();
     }
 

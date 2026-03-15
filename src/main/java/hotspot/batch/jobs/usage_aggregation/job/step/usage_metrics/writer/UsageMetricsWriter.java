@@ -56,7 +56,7 @@ public class UsageMetricsWriter extends JdbcBatchItemWriter<WeeklyReport> {
         ps.setLong(1, item.totalUsage());
         
         // 2. score_data (JSONB)
-        ps.setObject(2, createPgObject(jsonConverter.toJson(item.scoreResult())));
+        ps.setObject(2, createPgObject(jsonConverter.toJson(item.scoreData())));
         
         // 3. tags (VARCHAR[])
         ps.setArray(3, createSqlArray(item.tags(), ps));

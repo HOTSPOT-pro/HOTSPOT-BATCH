@@ -8,6 +8,6 @@ import lombok.Builder;
  */
 @Builder
 public record ReportInsight(
-    ScoreResult scoreResult,
+    ScoreData scoreData,
     List<String> tags
 ) {}

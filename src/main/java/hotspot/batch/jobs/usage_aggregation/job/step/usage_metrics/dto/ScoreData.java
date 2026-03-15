@@ -7,7 +7,7 @@ import lombok.Builder;
  * 리포트 최종 점수 및 등급 정보
  */
 @Builder
-public record ScoreResult(
+public record ScoreData(
     int totalScore,
     String scoreLevel,
     List<ScoreReason> reasons

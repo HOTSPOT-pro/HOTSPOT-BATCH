@@ -10,16 +10,16 @@ import lombok.Builder;
  */
 @Builder
 public record WeeklyReport(
-    Long weeklyReportId, // PK
-    Long familyId,       // 가족 식별자
-    Long subId,          // 유저 식별자
-    String name,         // 유저 이름
-    LocalDate weekStartDate, // 분석 시작일
-    LocalDate weekEndDate,   // 분석 종료일
-    long totalUsage,
-    ScoreResult scoreResult, // 점수, 등급, 사유 통합
-    List<String> tags,
-    SummaryData summaryData,
-    UsageListData usageListData, // 이번 주 상세 리스트
-    String reportStatus
+        Long weeklyReportId, // PK
+        Long familyId,       // 가족 식별자
+        Long subId,          // 유저 식별자
+        String name,         // 유저 이름
+        LocalDate weekStartDate, // 분석 시작일
+        LocalDate weekEndDate,   // 분석 종료일
+        long totalUsage,
+        ScoreData scoreData, // 점수, 등급, 사유 통합
+        List<String> tags,
+        SummaryData summaryData,
+        UsageListData usageListData, // 이번 주 상세 리스트
+        String reportStatus
 ) {}
