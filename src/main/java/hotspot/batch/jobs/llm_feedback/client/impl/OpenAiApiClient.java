@@ -5,6 +5,7 @@ import hotspot.batch.jobs.llm_feedback.client.LlmApiClient;
 import hotspot.batch.jobs.llm_feedback.dto.AiFeedback;
 import hotspot.batch.jobs.llm_feedback.dto.ChatCompletionRequest;
 import hotspot.batch.jobs.llm_feedback.dto.ChatCompletionResponse;
+import hotspot.batch.common.exception.LlmJsonParsingException;
 import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import io.github.resilience4j.retry.annotation.Retry;
 import java.util.List;
@@ -64,7 +65,7 @@ public class OpenAiApiClient implements LlmApiClient {
                         new ChatCompletionRequest.Message("user", prompt)
                 ))
                 .temperature(temperature)
-                .max_tokens(maxTokens) // YAML에서 주입받은 최대 토큰 수 설정
+                .max_tokens(maxTokens)
                 .response_format(Map.of("type", "json_object"))
                 .build();
 
@@ -86,7 +87,8 @@ public class OpenAiApiClient implements LlmApiClient {
                         return jsonConverter.fromJson(cleanJson, AiFeedback.class);
                     } catch (Exception e) {
                         log.error("AI Feedback JSON Parsing Error. cleanJson: {}", cleanJson, e);
-                        throw new RuntimeException("AI 피드백 JSON 파싱 실패", e);
+                        // 범용 RuntimeException 대신 구체적인 도메인 예외 발생
+                        throw new LlmJsonParsingException("AI 피드백 JSON 파싱 실패", cleanJson, e);
                     }
                 })
                 .doOnError(e -> log.error("OpenAI API Call Failed for current item: {}", e.getMessage()));

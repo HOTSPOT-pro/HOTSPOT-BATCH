@@ -5,6 +5,7 @@ import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
@@ -18,23 +19,33 @@ import reactor.netty.resources.ConnectionProvider;
 @Configuration
 public class LlmConfig {
 
-    private static final int TIMEOUT_MILLIS = 60000; // 60초 (LLM 응답 지연 대비)
+    @Value("${llm.client.connect-timeout-millis}")
+    private int connectTimeoutMillis;
+
+    @Value("${llm.client.read-timeout-millis}")
+    private int readTimeoutMillis;
+
+    @Value("${llm.client.max-connections}")
+    private int maxConnections;
+
+    @Value("${llm.client.pending-acquire-max-count}")
+    private int pendingAcquireMaxCount;
 
     @Bean
     public WebClient llmWebClient() {
         // 비동기 동시 요청을 충분히 수용하기 위한 Connection Pool 설정
         ConnectionProvider provider = ConnectionProvider.builder("llm-connection-provider")
-                .maxConnections(100)
-                .pendingAcquireMaxCount(500)
-                .pendingAcquireTimeout(Duration.ofSeconds(60))
+                .maxConnections(maxConnections)
+                .pendingAcquireMaxCount(pendingAcquireMaxCount)
+                .pendingAcquireTimeout(Duration.ofMillis(readTimeoutMillis)) // 읽기 타임아웃과 동기화
                 .build();
 
         HttpClient httpClient = HttpClient.create(provider)
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000) // Connect Timeout 5초
-                .responseTimeout(Duration.ofMillis(TIMEOUT_MILLIS))
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMillis)
+                .responseTimeout(Duration.ofMillis(readTimeoutMillis))
                 .doOnConnected(conn -> conn
-                        .addHandlerLast(new ReadTimeoutHandler(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS))
-                        .addHandlerLast(new WriteTimeoutHandler(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)));
+                        .addHandlerLast(new ReadTimeoutHandler(readTimeoutMillis, TimeUnit.MILLISECONDS))
+                        .addHandlerLast(new WriteTimeoutHandler(readTimeoutMillis, TimeUnit.MILLISECONDS)));
 
         return WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
