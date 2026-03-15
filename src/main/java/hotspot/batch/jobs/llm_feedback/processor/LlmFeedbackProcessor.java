@@ -1,6 +1,7 @@
 package hotspot.batch.jobs.llm_feedback.processor;
 
 import hotspot.batch.jobs.llm_feedback.client.LlmApiClient;
+import hotspot.batch.jobs.llm_feedback.client.PromptManager;
 import hotspot.batch.jobs.llm_feedback.config.LlmProperties;
 import hotspot.batch.jobs.llm_feedback.dto.AiFeedback;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;

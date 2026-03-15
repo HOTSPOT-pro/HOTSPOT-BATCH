@@ -1,4 +1,4 @@
-package hotspot.batch.jobs.llm_feedback.processor;
+package hotspot.batch.jobs.llm_feedback.client;
 
 import hotspot.batch.common.util.JsonConverter;
 import hotspot.batch.jobs.llm_feedback.config.LlmProperties;
