@@ -1,0 +1,20 @@
+llm:
+  # Job 실행 관련 설정
+  job:
+    chunk-size: ${LLM_JOB_CHUNK_SIZE:50}
+    skip-limit: ${LLM_JOB_SKIP_LIMIT:100}
+    prompt-path: ${LLM_JOB_PROMPT_PATH:prompts/llm_feedback_v1.st}
+
+  # OpenAI API 상세 설정 (환경변수 우선, 없으면 기본값 사용)
+  openai:
+    model: ${LLM_OPENAI_MODEL:gpt-4o-mini}
+    api-key: ${LLM_OPENAI_API_KEY:dummy-key}
+    temperature: ${LLM_OPENAI_TEMPERATURE:0.7}
+    prompt-version: ${LLM_OPENAI_PROMPT_VERSION:v1.0}
+  
+  # WebClient 통신 인프라 설정
+  client:
+    connect-timeout-millis: ${LLM_CLIENT_CONNECT_TIMEOUT:5000}
+    read-timeout-millis: ${LLM_CLIENT_READ_TIMEOUT:60000}
+    max-connections: ${LLM_CLIENT_MAX_CONNECTIONS:100}
+    pending-acquire-max-count: ${LLM_CLIENT_PENDING_MAX:500}
