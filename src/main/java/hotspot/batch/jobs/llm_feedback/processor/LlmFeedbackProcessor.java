@@ -4,6 +4,7 @@ import hotspot.batch.jobs.llm_feedback.client.LlmApiClient;
 import hotspot.batch.jobs.llm_feedback.config.LlmProperties;
 import hotspot.batch.jobs.llm_feedback.dto.AiFeedback;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
+import hotspot.batch.jobs.llm_feedback.dto.PromptMessages;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
@@ -32,17 +33,16 @@ public class LlmFeedbackProcessor {
         return item -> {
             log.info("Generating AI Feedback for weeklyReportId: {}", item.weeklyReportId());
             
-            // 1. 리포트 데이터를 기반으로 최종 프롬프트 문자열 생성
-            String prompt = promptManager.createPrompt(item);
+            // 1. 시스템/사용자 메시지 쌍 생성
+            PromptMessages messages = promptManager.createPromptMessages(item);
             
             try {
-                // 2. LLM API 호출 (Async 스레드 내에서 동기 방식으로 결과 대기)
-                AiFeedback aiFeedback = llmApiClient.generateFeedback(prompt)
+                // 2. LLM API 호출
+                AiFeedback aiFeedback = llmApiClient.generateFeedback(messages)
                         .block(); 
                 
                 if (aiFeedback == null) {
                     log.warn("AI Feedback generation failed for reportId: {}. Item will be filtered out.", item.weeklyReportId());
-                    // 실패 시 null을 반환하여 Spring Batch가 이 아이템을 Writer로 넘기지 않도록 필터링함
                     return null;
                 }
 

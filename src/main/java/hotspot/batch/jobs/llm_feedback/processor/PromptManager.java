@@ -3,6 +3,7 @@ package hotspot.batch.jobs.llm_feedback.processor;
 import hotspot.batch.common.util.JsonConverter;
 import hotspot.batch.jobs.llm_feedback.config.LlmProperties;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
+import hotspot.batch.jobs.llm_feedback.dto.PromptMessages;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -21,9 +22,18 @@ public class PromptManager {
     private final JsonConverter jsonConverter;
     private final LlmProperties properties;
 
-    public String createPrompt(LlmFeedbackWeeklyReport report) {
-        String template = loadTemplate(properties.job().promptPath());
+    /**
+     * 리포트 데이터를 기반으로 시스템/사용자 메시지 쌍을 생성
+     */
+    public PromptMessages createPromptMessages(LlmFeedbackWeeklyReport report) {
+        String fullTemplate = loadTemplate(properties.job().promptPath());
         
+        // '---' 구분자를 기준으로 시스템 메시지와 사용자 메시지 템플릿 분리
+        String[] parts = fullTemplate.split("---");
+        String systemTemplate = parts[0].trim();
+        String userTemplate = parts.length > 1 ? parts[1].trim() : "";
+
+        // 사용자 데이터 JSON 변환 및 바인딩
         Map<String, Object> userData = Map.of(
             "subId", report.subId(),
             "name", report.name(),
@@ -37,7 +47,9 @@ public class PromptManager {
         );
 
         String userDataJson = jsonConverter.toJson(userData);
-        return template.replace("{{userDataJson}}", userDataJson);
+        String boundUserMessage = userTemplate.replace("{{userDataJson}}", userDataJson);
+
+        return new PromptMessages(systemTemplate, boundUserMessage);
     }
 
     private String loadTemplate(String path) {

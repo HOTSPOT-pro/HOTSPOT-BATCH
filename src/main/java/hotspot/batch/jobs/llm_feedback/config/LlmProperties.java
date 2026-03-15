@@ -4,7 +4,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * LLM 관련 모든 설정값을 관리하는 프로퍼티 클래스
- * llm-config.yml의 'llm' 프리픽스 하위 설정들과 매핑됨
  */
 @ConfigurationProperties(prefix = "llm")
 public record LlmProperties(
@@ -23,8 +22,7 @@ public record LlmProperties(
         String apiKey,
         double temperature,
         int maxTokens,
-        String promptVersion,
-        String systemMessage
+        String promptVersion
     ) {}
 
     public record Client(

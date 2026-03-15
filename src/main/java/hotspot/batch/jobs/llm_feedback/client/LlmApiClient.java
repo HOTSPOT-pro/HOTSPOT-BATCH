@@ -1,7 +1,7 @@
 package hotspot.batch.jobs.llm_feedback.client;
 
 import hotspot.batch.jobs.llm_feedback.dto.AiFeedback;
-import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
+import hotspot.batch.jobs.llm_feedback.dto.PromptMessages;
 import reactor.core.publisher.Mono;
 
 /**
@@ -9,7 +9,7 @@ import reactor.core.publisher.Mono;
  */
 public interface LlmApiClient {
     /**
-     * 프롬프트를 기반으로 AI 피드백 생성을 요청함 (비동기)
+     * 시스템/사용자 메시지 쌍을 기반으로 AI 피드백 생성을 요청함
      */
-    Mono<AiFeedback> generateFeedback(String prompt);
+    Mono<AiFeedback> generateFeedback(PromptMessages messages);
 }

@@ -4,6 +4,7 @@ import hotspot.batch.jobs.llm_feedback.client.LlmApiClient;
 import hotspot.batch.jobs.llm_feedback.dto.AiFeedback;
 import hotspot.batch.jobs.llm_feedback.dto.Feedback;
 import hotspot.batch.jobs.llm_feedback.dto.PolicyRecommend;
+import hotspot.batch.jobs.llm_feedback.dto.PromptMessages;
 import hotspot.batch.jobs.llm_feedback.dto.SummaryText;
 import java.time.Duration;
 import java.util.List;
@@ -15,20 +16,17 @@ import reactor.core.publisher.Mono;
 
 /**
  * 테스트 및 검증을 위한 Mock LLM API 클라이언트
- * - 실제 API 호출 없이 더미 데이터를 반환함
- * - 1초의 지연(Latency)을 주어 AsyncItemProcessor의 병렬 처리 확인 가능
- * - 10% 확률로 에러를 발생시켜 Skip/Retry 로직 확인 가능
  */
 @Slf4j
 @Service
-@Profile("mock") // 'mock' 프로파일 활성화 시에만 빈으로 등록됨
+@Profile("mock")
 public class MockLlmApiClient implements LlmApiClient {
 
     private final Random random = new Random();
 
     @Override
-    public Mono<AiFeedback> generateFeedback(String prompt) {
-        // 10% 확률로 에러 발생 (Skip/Retry 테스트용)
+    public Mono<AiFeedback> generateFeedback(PromptMessages messages) {
+        // 10% 확률로 에러 발생
         if (random.nextInt(10) == 0) {
             log.error("[MOCK] Simulated API Failure for testing skip/retry");
             return Mono.error(new RuntimeException("Mock API Failure"));
