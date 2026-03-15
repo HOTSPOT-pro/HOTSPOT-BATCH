@@ -1,5 +1,6 @@
 package hotspot.batch.jobs.llm_feedback.dto;
 
+import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreResult;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.SummaryData;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageListData;
@@ -44,7 +45,7 @@ public record LlmFeedbackWeeklyReport(
             .tags(this.tags)
             .summaryData(this.summaryData)
             .usageListData(this.usageListData)
-            .reportStatus("COMPLETED")
+            .reportStatus(ReportStatus.COMPLETED.name())
             .aiFeedback(aiFeedback)
             .isLlmUsed(true)
             .aiModel(aiModel)

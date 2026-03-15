@@ -1,6 +1,7 @@
 package hotspot.batch.jobs.llm_feedback.job.step;
 
 import hotspot.batch.common.config.BatchConstants;
+import hotspot.batch.jobs.llm_feedback.config.LlmBatchConstants;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
 import hotspot.batch.jobs.llm_feedback.listener.LlmFeedbackSkipListener;
 import java.util.concurrent.Future;
@@ -17,14 +18,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
 /**
- * WeeklyReport LLM 피드백 생성을 위한 Step 설정 (Orchestration 및 결함 허용 설정)
+ * WeeklyReport LLM 피드백 생성을 위한 Step 설정
  */
 @Configuration
 @RequiredArgsConstructor
 public class LlmFeedbackStepConfig {
 
-    private static final int SKIP_LIMIT = 100;
-    
     private final LlmFeedbackSkipListener llmFeedbackSkipListener;
 
     @Bean
@@ -43,8 +42,8 @@ public class LlmFeedbackStepConfig {
                 .writer(writer)
                 .faultTolerant()
                 .skip(Exception.class)
-                .skipLimit(SKIP_LIMIT)
-                .listener(llmFeedbackSkipListener) // 분리된 리스너 적용
+                .skipLimit(LlmBatchConstants.SKIP_LIMIT)
+                .listener(llmFeedbackSkipListener)
                 .build();
     }
 }

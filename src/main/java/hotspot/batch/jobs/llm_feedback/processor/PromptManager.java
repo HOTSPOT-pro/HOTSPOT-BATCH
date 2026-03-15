@@ -1,6 +1,7 @@
 package hotspot.batch.jobs.llm_feedback.processor;
 
 import hotspot.batch.common.util.JsonConverter;
+import hotspot.batch.jobs.llm_feedback.config.LlmBatchConstants;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -23,7 +24,7 @@ public class PromptManager {
      * 리포트 데이터를 기반으로 최종 프롬프트를 생성
      */
     public String createPrompt(LlmFeedbackWeeklyReport report) {
-        String template = loadTemplate("prompts/llm_feedback_v1.st");
+        String template = loadTemplate(LlmBatchConstants.PROMPT_TEMPLATE_PATH); // 상수 활용
         
         // 입력받은 JSON 스펙에 맞춰 데이터를 조합 (SummaryData와 ScoreResult 활용)
         Map<String, Object> userData = Map.of(

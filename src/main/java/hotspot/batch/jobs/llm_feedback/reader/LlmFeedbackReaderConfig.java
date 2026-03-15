@@ -3,6 +3,7 @@ package hotspot.batch.jobs.llm_feedback.reader;
 import hotspot.batch.common.config.BatchConstants;
 import hotspot.batch.common.util.JsonConverter;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
+import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreResult;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.SummaryData;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageListData;
@@ -28,7 +29,6 @@ import org.springframework.jdbc.core.RowMapper;
 
 /**
  * LLM 피드백 처리를 위한 WeeklyReport 데이터를 읽어오는 Reader 설정
- * JSONB 및 Array 타입을 DTO 객체로 변환하는 커스텀 RowMapper 포함
  */
 @Configuration
 @RequiredArgsConstructor
@@ -44,7 +44,7 @@ public class LlmFeedbackReaderConfig {
         
         Map<String, Object> parameterValues = new HashMap<>();
         parameterValues.put("targetDate", targetDate);
-        parameterValues.put("status", "AGGREGATED");
+        parameterValues.put("status", ReportStatus.AGGREGATED.name());
 
         return new JdbcPagingItemReaderBuilder<LlmFeedbackWeeklyReport>()
                 .name("llmFeedbackReader")

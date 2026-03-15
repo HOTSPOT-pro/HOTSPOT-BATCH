@@ -1,6 +1,7 @@
 package hotspot.batch.jobs.llm_feedback.processor;
 
 import hotspot.batch.jobs.llm_feedback.client.LlmApiClient;
+import hotspot.batch.jobs.llm_feedback.config.LlmBatchConstants;
 import hotspot.batch.jobs.llm_feedback.dto.AiFeedback;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
 import lombok.RequiredArgsConstructor;
@@ -43,8 +44,8 @@ public class LlmFeedbackProcessor {
                     return item; // 실패 시 원본 반환 (상태 미변경)
                 }
 
-                // 3. 결과 바인딩 및 상태 변경 (COMPLETED)
-                return item.withAiFeedback(aiFeedback, "gpt-4-turbo", "v1.0");
+                // 상수를 활용한 피드백 바인딩
+                return item.withAiFeedback(aiFeedback, LlmBatchConstants.DEFAULT_MODEL, LlmBatchConstants.PROMPT_VERSION);
             } catch (Exception e) {
                 log.error("Error during LLM processing for reportId: {}", item.weeklyReportId(), e);
                 return item; // 에러 시 원본 반환 (SkipPolicy에 의해 처리될 수 있음)
