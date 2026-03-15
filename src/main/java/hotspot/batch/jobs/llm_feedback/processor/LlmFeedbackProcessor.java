@@ -1,12 +1,12 @@
 package hotspot.batch.jobs.llm_feedback.processor;
 
 import hotspot.batch.jobs.llm_feedback.client.LlmApiClient;
+import hotspot.batch.jobs.llm_feedback.config.LlmProperties;
 import hotspot.batch.jobs.llm_feedback.dto.AiFeedback;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
@@ -22,16 +22,10 @@ public class LlmFeedbackProcessor {
 
     private final LlmApiClient llmApiClient;
     private final PromptManager promptManager;
-
-    @Value("${llm.openai.model}")
-    private String model;
-
-    @Value("${llm.openai.prompt-version}")
-    private String promptVersion;
+    private final LlmProperties properties;
 
     /**
      * 실제 처리 로직을 담당하는 Delegate
-     * - 프롬프트 생성 -> API 호출 -> 결과 바인딩 순으로 진행
      */
     @Bean
     public ItemProcessor<LlmFeedbackWeeklyReport, LlmFeedbackWeeklyReport> llmFeedbackProcessorDelegate() {
@@ -52,12 +46,9 @@ public class LlmFeedbackProcessor {
                     return null;
                 }
 
-                // 3. 성공한 경우 AI 피드백을 바인딩하고 리포트 상태를 COMPLETED로 변경하여 반환
-                return item.withAiFeedback(aiFeedback, model, promptVersion);
+                return item.withAiFeedback(aiFeedback, properties.openai().model(), properties.openai().promptVersion());
             } catch (Exception e) {
                 log.error("Error during LLM processing for reportId: {}. Skipping item.", item.weeklyReportId(), e);
-                // 예외 발생 시 SkipPolicy가 동작하도록 예외를 던지거나, 
-                // Skip 정책 외의 상황에서 안전하게 필터링하고 싶다면 여기서도 null 반환 가능
                 throw e; 
             }
         };
