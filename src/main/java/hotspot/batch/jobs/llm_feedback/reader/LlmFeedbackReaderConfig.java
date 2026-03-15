@@ -1,6 +1,5 @@
 package hotspot.batch.jobs.llm_feedback.reader;
 
-import hotspot.batch.common.config.BatchConstants;
 import hotspot.batch.common.util.JsonConverter;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
 import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
@@ -37,6 +36,9 @@ public class LlmFeedbackReaderConfig {
     private final DataSource dataSource;
     private final JsonConverter jsonConverter;
 
+    @Value("${llm.job.chunk-size}")
+    private int chunkSize;
+
     @Bean
     @StepScope
     public JdbcPagingItemReader<LlmFeedbackWeeklyReport> llmFeedbackReader(
@@ -51,7 +53,7 @@ public class LlmFeedbackReaderConfig {
                 .dataSource(dataSource)
                 .queryProvider(createPagingQueryProvider())
                 .parameterValues(parameterValues)
-                .pageSize(BatchConstants.LLM_CHUNK_SIZE)
+                .pageSize(chunkSize) // YAML에서 주입된 값 사용
                 .rowMapper(llmFeedbackRowMapper())
                 .build();
     }
@@ -72,9 +74,6 @@ public class LlmFeedbackReaderConfig {
         }
     }
 
-    /**
-     * PostgreSQL의 복잡한 타입을 Java Record 필드에 매핑하는 RowMapper
-     */
     private RowMapper<LlmFeedbackWeeklyReport> llmFeedbackRowMapper() {
         return (rs, rowNum) -> LlmFeedbackWeeklyReport.builder()
                 .weeklyReportId(rs.getLong("weekly_report_id"))
@@ -84,11 +83,8 @@ public class LlmFeedbackReaderConfig {
                 .weekStartDate(rs.getObject("week_start_date", LocalDate.class))
                 .weekEndDate(rs.getObject("week_end_date", LocalDate.class))
                 .totalUsage(rs.getLong("total_usage"))
-                // JSONB -> Object 변환
                 .scoreResult(jsonConverter.fromJson(rs.getString("score_result"), ScoreResult.class))
-                // varchar[] -> List<String> 변환
                 .tags(parseSqlArray(rs, "tags"))
-                // JSONB -> Object 변환
                 .summaryData(jsonConverter.fromJson(rs.getString("summary_data"), SummaryData.class))
                 .usageListData(jsonConverter.fromJson(rs.getString("usage_list_data"), UsageListData.class))
                 .reportStatus(rs.getString("report_status"))
