@@ -1,5 +1,6 @@
 package hotspot.batch.jobs.llm_feedback.processor;
 
+import hotspot.batch.common.config.BatchConstants;
 import hotspot.batch.jobs.llm_feedback.dto.AiFeedback;
 import hotspot.batch.jobs.llm_feedback.dto.Feedback;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
@@ -20,8 +21,6 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @Slf4j
 @Configuration
 public class LlmFeedbackProcessor {
-
-    private static final int POOL_SIZE = 50;
 
     /**
      * 비즈니스 로직을 담당하는 내부 ItemProcessor 구현체
@@ -78,9 +77,9 @@ public class LlmFeedbackProcessor {
     @Bean
     public TaskExecutor llmFeedbackTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(POOL_SIZE);
-        executor.setMaxPoolSize(POOL_SIZE);
-        executor.setQueueCapacity(POOL_SIZE);
+        executor.setCorePoolSize(BatchConstants.POOL_SIZE);
+        executor.setMaxPoolSize(BatchConstants.POOL_SIZE);
+        executor.setQueueCapacity(BatchConstants.POOL_SIZE);
         executor.setThreadNamePrefix("LlmFeedbackExecutor-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();

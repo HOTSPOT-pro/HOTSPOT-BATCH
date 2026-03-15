@@ -1,5 +1,6 @@
 package hotspot.batch.jobs.llm_feedback.job.step;
 
+import hotspot.batch.common.config.BatchConstants;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
 import java.util.concurrent.Future;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +22,6 @@ import org.springframework.transaction.PlatformTransactionManager;
 @RequiredArgsConstructor
 public class LlmFeedbackStepConfig {
 
-    private static final int CHUNK_SIZE = 50;
-
     @Bean
     public Step llmFeedbackStep(
             JobRepository jobRepository,
@@ -31,7 +30,7 @@ public class LlmFeedbackStepConfig {
             @Qualifier("asyncLlmFeedbackProcessor") ItemProcessor<LlmFeedbackWeeklyReport, Future<LlmFeedbackWeeklyReport>> processor,
             @Qualifier("asyncLlmFeedbackWriter") ItemWriter<Future<LlmFeedbackWeeklyReport>> writer) {
         return new StepBuilder("llmFeedbackStep", jobRepository)
-                .<LlmFeedbackWeeklyReport, Future<LlmFeedbackWeeklyReport>>chunk(CHUNK_SIZE)
+                .<LlmFeedbackWeeklyReport, Future<LlmFeedbackWeeklyReport>>chunk(BatchConstants.LLM_CHUNK_SIZE)
                 .transactionManager(transactionManager)
                 .reader(reader)
                 .processor(processor)
