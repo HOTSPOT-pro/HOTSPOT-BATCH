@@ -14,6 +14,7 @@ public record LlmProperties(
     public record Job(
         int chunkSize,
         int poolSize,
+        int gridSize,
         int skipLimit,
         String promptPath
     ) {}

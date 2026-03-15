@@ -41,10 +41,13 @@ public class LlmFeedbackReaderConfig {
     @Bean
     @StepScope
     public JdbcPagingItemReader<LlmFeedbackWeeklyReport> llmFeedbackReader(
-            @Value("#{jobParameters[targetDate]}") String targetDate) throws Exception {
+            @Value("#{stepExecutionContext['startId']}") Long startId, // 파티션 시작 ID 주입
+            @Value("#{stepExecutionContext['endId']}") Long endId) throws Exception {   // 파티션 종료 ID 주입
         
         Map<String, Object> parameterValues = new HashMap<>();
         parameterValues.put("status", ReportStatus.AGGREGATED.name());
+        parameterValues.put("startId", startId);
+        parameterValues.put("endId", endId);
 
         return new JdbcPagingItemReaderBuilder<LlmFeedbackWeeklyReport>()
                 .name("llmFeedbackReader")
@@ -62,7 +65,8 @@ public class LlmFeedbackReaderConfig {
         queryProvider.setDataSource(dataSource);
         queryProvider.setSelectClause("SELECT weekly_report_id, family_id, sub_id, name, week_start_date, week_end_date, total_usage, score_data, tags, summary_data, usage_list_data, report_status");
         queryProvider.setFromClause("FROM weekly_report");
-        queryProvider.setWhereClause("WHERE report_status = :status");
+        // 파티셔닝 ID 범위 조건 추가
+        queryProvider.setWhereClause("WHERE report_status = :status AND weekly_report_id BETWEEN :startId AND :endId");
         queryProvider.setSortKeys(Map.of("weekly_report_id", Order.ASCENDING));
         
         try {

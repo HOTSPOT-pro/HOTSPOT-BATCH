@@ -5,6 +5,8 @@ llm:
     chunk-size: ${LLM_JOB_CHUNK_SIZE:50}
     # 비동기 처리를 위한 스레드 풀 사이즈 (I/O 병렬성 제어)
     pool-size: ${LLM_JOB_POOL_SIZE:50}
+    # 병렬 파티션 수 (Grid Size)
+    grid-size: ${LLM_JOB_GRID_SIZE:8}
     # LLM 호출 실패 시 허용할 최대 건수
     skip-limit: ${LLM_JOB_SKIP_LIMIT:100}
     # LLM에게 전달할 프롬프트 템플릿 파일의 리소스 경로
@@ -23,6 +25,5 @@ llm:
     base-url: ${LLM_CLIENT_BASE_URL:https://api.openai.com}
     connect-timeout-millis: ${LLM_CLIENT_CONNECT_TIMEOUT:5000}
     read-timeout-millis: ${LLM_CLIENT_READ_TIMEOUT:60000}
-    # 커넥션 풀 사이즈 (보통 pool-size보다 넉넉하게 설정)
     max-connections: ${LLM_CLIENT_MAX_CONNECTIONS:100}
     pending-acquire-max-count: ${LLM_CLIENT_PENDING_MAX:500}

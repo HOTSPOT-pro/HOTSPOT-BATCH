@@ -24,7 +24,7 @@ public class LlmFeedbackJobConfig {
     @Bean
     public Job llmFeedbackJob(
             JobRepository jobRepository,
-            @Qualifier("llmFeedbackStep") Step llmFeedbackStep) {
+            @Qualifier("llmFeedbackStep") Step llmFeedbackStep) { // Master Step 주입
         return new JobBuilder("llmFeedbackJob", jobRepository)
                 .validator(jobParameterValidator)
                 .start(llmFeedbackStep)
