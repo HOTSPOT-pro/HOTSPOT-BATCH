@@ -47,34 +47,6 @@ public class LogAggregationRepository {
         return maxAppliedSeq == null ? 0L : maxAppliedSeq;
     }
 
-    public List<UsageAppliedEventLogRow> findUsageAppliedEventLogsAfter(long lastAppliedSeq, int fetchSize) {
-        String sql = """
-                select applied_seq,
-                       event_id,
-                       sub_id,
-                       family_id,
-                       app_id,
-                       occurred_at,
-                       yyyymm,
-                       yyyymmdd,
-                       usage_amount,
-                       gift_used,
-                       plan_used,
-                       family_used,
-                       gift_detail_json
-                  from usage_applied_event_log
-                 where applied_seq > :lastAppliedSeq
-                 order by applied_seq asc
-                 limit :fetchSize
-                """;
-
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("lastAppliedSeq", lastAppliedSeq)
-                .addValue("fetchSize", fetchSize);
-
-        return batchJdbcTemplate.query(sql, params, USAGE_EVENT_ROW_MAPPER);
-    }
-
     public SubUsageMonthlyAggregateRow findSubUsageMonthlyAggregate(Long subId, String yyyymm) {
         String sql = """
                 select sub_id,
