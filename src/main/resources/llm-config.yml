@@ -17,11 +17,9 @@ llm:
     # 답변의 창의성 조절 (0.7: 전문적이고 균형 잡힌 분석에 적합)
     temperature: ${LLM_OPENAI_TEMPERATURE:0.7}
     # 답변의 최대 토큰 수 (비용 및 답변 길이 제어)
-    max-tokens: ${LLM_OPENAI_MAX_TOKENS:1000}
+    max-tokens: ${LLM_OPENAI_MAX_TOKENS:2000}
     # 프롬프트 및 응답 데이터 구조의 버전 관리용
     prompt-version: ${LLM_OPENAI_PROMPT_VERSION:v1.0}
-    # AI 페르소나 및 가이드라인을 정의하는 시스템 메시지
-    system-message: ${LLM_OPENAI_SYSTEM_MESSAGE:당신은 아동 스마트폰 사용 패턴 분석 전문가입니다. 반드시 JSON 구조로만 답변하세요.}
   
   # WebClient 기반 비동기 통신 인프라 상세 설정
   client:
