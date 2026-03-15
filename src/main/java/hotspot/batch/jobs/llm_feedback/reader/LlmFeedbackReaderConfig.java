@@ -1,7 +1,17 @@
 package hotspot.batch.jobs.llm_feedback.reader;
 
+import hotspot.batch.common.config.BatchConstants;
+import hotspot.batch.common.util.JsonConverter;
 import hotspot.batch.jobs.llm_feedback.dto.LlmFeedbackWeeklyReport;
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreResult;
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.SummaryData;
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageListData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
@@ -14,23 +24,24 @@ import org.springframework.batch.infrastructure.item.database.support.SqlPagingQ
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.jdbc.core.DataClassRowMapper;
+import org.springframework.jdbc.core.RowMapper;
 
 /**
  * LLM 피드백 처리를 위한 WeeklyReport 데이터를 읽어오는 Reader 설정
+ * JSONB 및 Array 타입을 DTO 객체로 변환하는 커스텀 RowMapper 포함
  */
 @Configuration
 @RequiredArgsConstructor
 public class LlmFeedbackReaderConfig {
 
     private final DataSource dataSource;
-    private static final int CHUNK_SIZE = 50;
+    private final JsonConverter jsonConverter;
 
     @Bean
     @StepScope
     public JdbcPagingItemReader<LlmFeedbackWeeklyReport> llmFeedbackReader(
             @Value("#{jobParameters[targetDate]}") String targetDate) throws Exception {
-
+        
         Map<String, Object> parameterValues = new HashMap<>();
         parameterValues.put("targetDate", targetDate);
         parameterValues.put("status", "AGGREGATED");
@@ -40,8 +51,8 @@ public class LlmFeedbackReaderConfig {
                 .dataSource(dataSource)
                 .queryProvider(createPagingQueryProvider())
                 .parameterValues(parameterValues)
-                .pageSize(CHUNK_SIZE)
-                .rowMapper(new DataClassRowMapper<>(LlmFeedbackWeeklyReport.class))
+                .pageSize(BatchConstants.LLM_CHUNK_SIZE)
+                .rowMapper(llmFeedbackRowMapper())
                 .build();
     }
 
@@ -53,11 +64,41 @@ public class LlmFeedbackReaderConfig {
         queryProvider.setFromClause("FROM weekly_report");
         queryProvider.setWhereClause("WHERE report_status = :status AND week_start_date = :targetDate::date");
         queryProvider.setSortKeys(Map.of("weekly_report_id", Order.ASCENDING));
-
+        
         try {
             return queryProvider.getObject();
         } catch (Exception e) {
             throw new RuntimeException("PagingQueryProvider 생성 실패", e);
         }
+    }
+
+    /**
+     * PostgreSQL의 복잡한 타입을 Java Record 필드에 매핑하는 RowMapper
+     */
+    private RowMapper<LlmFeedbackWeeklyReport> llmFeedbackRowMapper() {
+        return (rs, rowNum) -> LlmFeedbackWeeklyReport.builder()
+                .weeklyReportId(rs.getLong("weekly_report_id"))
+                .familyId(rs.getLong("family_id"))
+                .subId(rs.getLong("sub_id"))
+                .name(rs.getString("name"))
+                .weekStartDate(rs.getObject("week_start_date", LocalDate.class))
+                .weekEndDate(rs.getObject("week_end_date", LocalDate.class))
+                .totalUsage(rs.getLong("total_usage"))
+                // JSONB -> Object 변환
+                .scoreResult(jsonConverter.fromJson(rs.getString("score_result"), ScoreResult.class))
+                // varchar[] -> List<String> 변환
+                .tags(parseSqlArray(rs, "tags"))
+                // JSONB -> Object 변환
+                .summaryData(jsonConverter.fromJson(rs.getString("summary_data"), SummaryData.class))
+                .usageListData(jsonConverter.fromJson(rs.getString("usage_list_data"), UsageListData.class))
+                .reportStatus(rs.getString("report_status"))
+                .build();
+    }
+
+    private List<String> parseSqlArray(ResultSet rs, String columnName) throws SQLException {
+        java.sql.Array sqlArray = rs.getArray(columnName);
+        if (sqlArray == null) return List.of();
+        String[] array = (String[]) sqlArray.getArray();
+        return Arrays.asList(array);
     }
 }
