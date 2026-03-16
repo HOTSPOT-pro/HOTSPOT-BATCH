@@ -26,8 +26,8 @@ public class MockLlmApiClient implements LlmApiClient {
 
     @Override
     public Mono<AiFeedback> generateFeedback(PromptMessages messages) {
-        // 10% 확률로 에러 발생
-        if (random.nextInt(10) == 0) {
+        // 1% 확률로 에러 발생
+        if (random.nextInt(100) == 0) {
             log.error("[MOCK] Simulated API Failure for testing skip/retry");
             return Mono.error(new RuntimeException("Mock API Failure"));
         }
