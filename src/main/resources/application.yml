@@ -2,6 +2,14 @@ project:
   name: Hotspot Batch
   version: 1.0.0
 
+batch:
+  log-aggregation:
+    scheduler:
+      enabled: true
+      keep-alive: true
+      initial-delay-ms: 5000
+      fixed-delay-ms: 2000
+
 spring:
   application:
     name: batch
