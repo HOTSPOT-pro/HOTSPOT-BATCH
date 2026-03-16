@@ -32,7 +32,7 @@ public class ReportInsightServiceImpl implements ReportInsightService {
     private static final long LOW_USAGE_THRESHOLD = 300L * 60L * 1000L;
 
     // 점수 임계치 및 기준
-    private static final int BASE_SCORE = 80;
+    private static final int BASE_SCORE = 50;
     private static final long USAGE_MODERATE = 1200L * 60L * 1000L;
     private static final long USAGE_EXCESSIVE = 3000L * 60L * 1000L;
 
@@ -94,20 +94,35 @@ public class ReportInsightServiceImpl implements ReportInsightService {
         List<ScoreReason> reasons = new ArrayList<>();
         int score = BASE_SCORE;
 
-        // 사용량 절제 (30점)
-        if (totalUsage < USAGE_MODERATE) { score += 10; reasons.add(new ScoreReason(10, "절제된 사용 습관")); }
-        else if (totalUsage > USAGE_EXCESSIVE) { score -= 20; reasons.add(new ScoreReason(-20, "과도한 사용량 경고")); }
+        // 1. 사용량 절제 (가산 20점 / 감점 20점)
+        if (totalUsage < USAGE_MODERATE) { 
+            score += 20; 
+            reasons.add(new ScoreReason(20, "절제된 사용 습관")); 
+        } else if (totalUsage > USAGE_EXCESSIVE) { 
+            score -= 20; 
+            reasons.add(new ScoreReason(-20, "과도한 사용량 경고")); 
+        }
 
-        // 생산성 (25점)
+        // 2. 생산성 (가산 20점 / 감점 15점)
         double study = getCategoryRatio(comparison.usageListData(), List.of(STUDY_CATEGORY));
         double leisure = getCategoryRatio(comparison.usageListData(), ENTERTAINMENT_CATEGORIES);
-        if (study > leisure && study >= 30.0) { score += 15; reasons.add(new ScoreReason(15, "높은 생산성 비중")); }
-        else if (leisure >= 60.0) { score -= 10; reasons.add(new ScoreReason(-10, "여가 활동 편중")); }
+        if (study > leisure && study >= 30.0) { 
+            score += 20; 
+            reasons.add(new ScoreReason(20, "높은 생산성 비중")); 
+        } else if (leisure >= 60.0) { 
+            score -= 15; 
+            reasons.add(new ScoreReason(-15, "여가 활동 편중")); 
+        }
 
-        // 수면 건강 (20점)
+        // 3. 수면 건강 (가산 10점 / 감점 25점)
         double sleepRatio = (totalUsage > 0) ? (summary.hourlySummary().lateNightUsage() / (double) totalUsage * 100) : 0;
-        if (sleepRatio < 5.0) { score += 5; reasons.add(new ScoreReason(5, "안정적인 수면 위생")); }
-        else if (sleepRatio > 25.0) { score -= 20; reasons.add(new ScoreReason(-20, "심각한 심야 과사용")); }
+        if (sleepRatio < 5.0) { 
+            score += 10; 
+            reasons.add(new ScoreReason(10, "안정적인 수면 위생")); 
+        } else if (sleepRatio > 25.0) { 
+            score -= 25; 
+            reasons.add(new ScoreReason(-25, "심각한 심야 과사용")); 
+        }
 
         int finalScore = Math.max(0, Math.min(100, score));
 
