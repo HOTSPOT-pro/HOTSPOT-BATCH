@@ -18,9 +18,11 @@ spring:
 
   config:
     import:
-      - classpath:postgres.yml
+      - classpath:postgres-batch.yml
       - classpath:redis.yml
       - classpath:postgres-main.yml
+      - classpath:resilience4j.yml
+      - classpath:llm-config.yml
 
 ---
 spring:

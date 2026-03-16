@@ -12,5 +12,5 @@ public record LastWeekUsageListData(
     long totalUsage,
     List<DailyUsageItem> dailyUsageList,
     List<HourlyUsageItem> hourlyUsageList,
-    List<CategoryUsageItem> categoryUsageList
+    CategoryUsageListContainer categoryUsageList // 타입 변경: List -> Container
 ) {}

@@ -3,16 +3,10 @@ package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.impl
 import java.util.ArrayList;
 import java.util.List;
 
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.*;
 import org.springframework.stereotype.Service;
 
 import hotspot.batch.jobs.usage_aggregation.job.ReportTag;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.CategorySummaryItem;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ReportInsight;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreReason;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreResult;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.SummaryData;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageAggregationResult;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageComparisonResult;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.ReportInsightService;
 import lombok.RequiredArgsConstructor;
 
@@ -38,7 +32,7 @@ public class ReportInsightServiceImpl implements ReportInsightService {
     private static final long LOW_USAGE_THRESHOLD = 300L * 60L * 1000L;
 
     // 점수 임계치 및 기준
-    private static final int BASE_SCORE = 80;
+    private static final int BASE_SCORE = 50;
     private static final long USAGE_MODERATE = 1200L * 60L * 1000L;
     private static final long USAGE_EXCESSIVE = 3000L * 60L * 1000L;
 
@@ -46,7 +40,7 @@ public class ReportInsightServiceImpl implements ReportInsightService {
      * 집계된 수치와 전주 대비 변화를 분석하여 통합 인사이트(태그, 점수)를 반환함
      */
     @Override
-    public ReportInsight analyze(UsageAggregationResult agg, UsageComparisonResult comparison) {
+    public ReportInsight analyze(UsageAggregationResult agg, UsageComparisonResult comparison, WeeklyReportSnapshot lastWeek) {
         SummaryData summary = agg.summaryData();
         long totalUsage = agg.totalUsage();
 
@@ -54,10 +48,10 @@ public class ReportInsightServiceImpl implements ReportInsightService {
         List<ReportTag> tagList = generateTags(summary, comparison, totalUsage);
 
         // 2. 리포트 점수 계산
-        ScoreResult scoreResult = calculateScore(summary, comparison, totalUsage);
+        ScoreData scoreData = calculateScore(summary, comparison, totalUsage, lastWeek);
 
         return ReportInsight.builder()
-                .scoreResult(scoreResult)
+                .scoreData(scoreData)
                 .tags(tagList.stream().map(ReportTag::name).toList())
                 .build();
     }
@@ -83,10 +77,10 @@ public class ReportInsightServiceImpl implements ReportInsightService {
             case LATE_NIGHT_HIGH -> (summary.hourlySummary().lateNightUsage() >= LATE_NIGHT_USAGE_MIN && 
                                     (totalUsage > 0 && (summary.hourlySummary().lateNightUsage() / (double) totalUsage * 100) >= LATE_NIGHT_RATIO_MIN));
             case USAGE_SPIKE -> comparison.kpi().totalUsage().changeRatePct() >= USAGE_SPIKE_THRESHOLD;
-            case ENTERTAINMENT_HIGH -> getCategoryRatio(summary, ENTERTAINMENT_CATEGORIES) >= ENTERTAINMENT_RATIO_MAX;
-            case STUDY_LOW -> getCategoryRatio(summary, List.of(STUDY_CATEGORY)) <= STUDY_RATIO_MIN;
+            case ENTERTAINMENT_HIGH -> getCategoryRatio(comparison.usageListData(), ENTERTAINMENT_CATEGORIES) >= ENTERTAINMENT_RATIO_MAX;
+            case STUDY_LOW -> getCategoryRatio(comparison.usageListData(), List.of(STUDY_CATEGORY)) <= STUDY_RATIO_MIN;
             case WEEKEND_BURST -> summary.dailySummary().weekdayAvg() > 0 && (summary.dailySummary().weekendAvg() / (double) summary.dailySummary().weekdayAvg() >= WEEKEND_BURST_MULTIPLIER);
-            case STUDY_FOCUS_UP -> comparison.usageListData().categoryUsageList().stream()
+            case STUDY_FOCUS_UP -> comparison.usageListData().categoryUsageList().comparison().stream()
                     .anyMatch(c -> STUDY_CATEGORY.equalsIgnoreCase(c.category()) && c.changeRate() >= STUDY_FOCUS_UP_THRESHOLD);
             case LOW_USAGE -> totalUsage > 0 && totalUsage < LOW_USAGE_THRESHOLD;
             case BALANCED_GOOD -> false;
@@ -96,36 +90,61 @@ public class ReportInsightServiceImpl implements ReportInsightService {
     /**
      * 5대 핵심 지표(사용량, 비중, 심야, 패턴, 개선도)를 정밀 분석하여 점수와 사유를 산출함
      */
-    private ScoreResult calculateScore(SummaryData summary, UsageComparisonResult comparison, long totalUsage) {
+    private ScoreData calculateScore(SummaryData summary, UsageComparisonResult comparison, long totalUsage, WeeklyReportSnapshot lastWeek) {
         List<ScoreReason> reasons = new ArrayList<>();
         int score = BASE_SCORE;
 
-        // 사용량 절제 (30점)
-        if (totalUsage < USAGE_MODERATE) { score += 10; reasons.add(new ScoreReason(10, "절제된 사용 습관")); }
-        else if (totalUsage > USAGE_EXCESSIVE) { score -= 20; reasons.add(new ScoreReason(-20, "과도한 사용량 경고")); }
+        // 1. 사용량 절제 (가산 20점 / 감점 20점)
+        if (totalUsage < USAGE_MODERATE) { 
+            score += 20; 
+            reasons.add(new ScoreReason(20, "절제된 사용 습관")); 
+        } else if (totalUsage > USAGE_EXCESSIVE) { 
+            score -= 20; 
+            reasons.add(new ScoreReason(-20, "과도한 사용량 경고")); 
+        }
 
-        // 생산성 (25점)
-        double study = getCategoryRatio(summary, List.of(STUDY_CATEGORY));
-        double leisure = getCategoryRatio(summary, ENTERTAINMENT_CATEGORIES);
-        if (study > leisure && study >= 30.0) { score += 15; reasons.add(new ScoreReason(15, "높은 생산성 비중")); }
-        else if (leisure >= 60.0) { score -= 10; reasons.add(new ScoreReason(-10, "여가 활동 편중")); }
+        // 2. 생산성 (가산 20점 / 감점 15점)
+        double study = getCategoryRatio(comparison.usageListData(), List.of(STUDY_CATEGORY));
+        double leisure = getCategoryRatio(comparison.usageListData(), ENTERTAINMENT_CATEGORIES);
+        if (study > leisure && study >= 30.0) { 
+            score += 20; 
+            reasons.add(new ScoreReason(20, "높은 생산성 비중")); 
+        } else if (leisure >= 60.0) { 
+            score -= 15; 
+            reasons.add(new ScoreReason(-15, "여가 활동 편중")); 
+        }
 
-        // 수면 건강 (20점)
+        // 3. 수면 건강 (가산 10점 / 감점 25점)
         double sleepRatio = (totalUsage > 0) ? (summary.hourlySummary().lateNightUsage() / (double) totalUsage * 100) : 0;
-        if (sleepRatio < 5.0) { score += 5; reasons.add(new ScoreReason(5, "안정적인 수면 위생")); }
-        else if (sleepRatio > 25.0) { score -= 20; reasons.add(new ScoreReason(-20, "심각한 심야 과사용")); }
+        if (sleepRatio < 5.0) { 
+            score += 10; 
+            reasons.add(new ScoreReason(10, "안정적인 수면 위생")); 
+        } else if (sleepRatio > 25.0) { 
+            score -= 25; 
+            reasons.add(new ScoreReason(-25, "심각한 심야 과사용")); 
+        }
 
         int finalScore = Math.max(0, Math.min(100, score));
-        return ScoreResult.builder().totalScore(finalScore).scoreLevel(determineLevel(finalScore)).reasons(reasons).build();
+
+        // 전주 대비 점수 차이 계산
+        int lastScore = (lastWeek != null && lastWeek.scoreData() != null) ? lastWeek.scoreData().totalScore() : finalScore;
+        int scoreDiff = finalScore - lastScore;
+
+        return ScoreData.builder()
+                .totalScore(finalScore)
+                .scoreDiff(scoreDiff)
+                .scoreLevel(determineLevel(finalScore))
+                .reasons(reasons)
+                .build();
     }
 
     /**
      * 특정 카테고리 그룹이 전체 사용량에서 차지하는 합산 비중을 구함
      */
-    private double getCategoryRatio(SummaryData summary, List<String> categories) {
-        return summary.categorySummary().stream()
+    private double getCategoryRatio(UsageListData usageListData, List<String> categories) {
+        return usageListData.categoryUsageList().thisWeek().stream()
                 .filter(c -> categories.contains(c.category().toUpperCase()))
-                .mapToDouble(CategorySummaryItem::percent).sum();
+                .mapToDouble(CategoryUsageItem::percent).sum();
     }
 
     /**

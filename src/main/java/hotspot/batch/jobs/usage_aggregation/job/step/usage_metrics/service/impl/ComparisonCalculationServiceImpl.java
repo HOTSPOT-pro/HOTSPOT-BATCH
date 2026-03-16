@@ -1,8 +1,6 @@
 package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.impl;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.*;
@@ -68,7 +66,6 @@ public class ComparisonCalculationServiceImpl implements ComparisonCalculationSe
         return SummaryData.builder()
             .dailySummary(daily)
             .hourlySummary(hourly)
-            .categorySummary(thisWeek.categorySummary()) // 카테고리 요약은 원본 유지
             .build();
     }
 
@@ -106,17 +103,32 @@ public class ComparisonCalculationServiceImpl implements ComparisonCalculationSe
             .toList();
 
         // 3. 카테고리별 데이터 매칭 및 증감률 계산
-        Map<String, Long> lastCategoryMap = lastWeek.usageListData().categoryUsageList().stream()
-            .collect(Collectors.toMap(CategoryUsageItem::category, CategoryUsageItem::thisWeek, (existing, replacement) -> existing));
+        CategoryUsageListContainer thisWeekCategoryContainer = thisWeek.categoryUsageList();
+        
+        // 지난주 데이터 맵 생성 (카테고리명 기준 매칭을 위해 사용량 및 퍼센트 정보를 맵으로 관리)
+        Map<String, CategoryUsageItem> lastCategoryMap = lastWeek.usageListData().categoryUsageList().thisWeek().stream()
+            .collect(Collectors.toMap(CategoryUsageItem::category, item -> item, (existing, replacement) -> existing));
 
-        List<CategoryUsageItem> categoryList = thisWeek.categoryUsageList().stream()
+        // 3-1. 지난주 카테고리 리스트 구성 (이번 주와 동일한 카테고리 순서로 지난주 수치 주입)
+        List<CategoryUsageItem> lastWeekCategoryList = thisWeekCategoryContainer.thisWeek().stream()
             .map(item -> {
-                long lastVal = lastCategoryMap.getOrDefault(item.category(), 0L);
+                CategoryUsageItem lastItem = lastCategoryMap.get(item.category());
                 return CategoryUsageItem.builder()
                     .category(item.category())
-                    .thisWeek(item.thisWeek())
-                    .lastWeek(lastVal)
-                    .changeRate(calculateRate(item.thisWeek(), lastVal))
+                    .usage(lastItem != null ? lastItem.usage() : 0L)
+                    .percent(lastItem != null ? lastItem.percent() : 0.0)
+                    .build();
+            })
+            .toList();
+
+        // 3-2. 전주 대비 카테고리별 증감률 계산
+        List<CategoryComparisonItem> comparisonList = thisWeekCategoryContainer.thisWeek().stream()
+            .map(item -> {
+                CategoryUsageItem lastItem = lastCategoryMap.get(item.category());
+                long lastVal = lastItem != null ? lastItem.usage() : 0L;
+                return CategoryComparisonItem.builder()
+                    .category(item.category())
+                    .changeRate(calculateRate(item.usage(), lastVal))
                     .build();
             })
             .toList();
@@ -125,7 +137,12 @@ public class ComparisonCalculationServiceImpl implements ComparisonCalculationSe
             .totalUsage(thisWeek.totalUsage())
             .dailyUsageList(dailyList)
             .hourlyUsageList(hourlyList)
-            .categoryUsageList(categoryList)
+            // 최종 통합된 카테고리 컨테이너 반환 (thisWeek, lastWeek, comparison 합본)
+            .categoryUsageList(CategoryUsageListContainer.builder()
+                .thisWeek(thisWeekCategoryContainer.thisWeek())
+                .lastWeek(lastWeekCategoryList)
+                .comparison(comparisonList)
+                .build())
             .build();
     }
 
@@ -140,7 +157,7 @@ public class ComparisonCalculationServiceImpl implements ComparisonCalculationSe
         double rate = calculateRate(thisWeekTotal, lastWeek.totalUsage());
         return KpiComparison.builder()
             .totalUsage(new ComparisonValue(diff, rate))
-            .scoreDiff(thisWeekScore - lastWeek.scoreResult().totalScore()) // lastWeek.totalScore() -> lastWeek.scoreResult().totalScore()
+            .scoreDiff(thisWeekScore - lastWeek.scoreData().totalScore()) // lastWeek.totalScore() -> lastWeek.scoreData().totalScore()
             .build();
     }
 

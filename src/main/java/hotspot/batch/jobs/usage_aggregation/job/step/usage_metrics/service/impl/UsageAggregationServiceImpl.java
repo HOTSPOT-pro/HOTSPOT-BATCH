@@ -4,27 +4,13 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
 import hotspot.batch.common.util.UsageCalculator;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.CategorySummaryItem;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.CategoryUsageItem;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.DailyAppUsage;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.DailySummaryItem;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.DailyUsageItem;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.HourlySummaryItem;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.HourlyUsageItem;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.SummaryData;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageAggregationResult;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageListData;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageMetricsAggregationInput;
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.*;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.AppCategoryCache;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.UsageAggregationService;
 import lombok.RequiredArgsConstructor;
@@ -98,7 +84,6 @@ public class UsageAggregationServiceImpl implements UsageAggregationService {
         return SummaryData.builder()
                 .dailySummary(calculateDailySummary(input))
                 .hourlySummary(calculateHourlySummary(input))
-                .categorySummary(calculateCategorySummary(input))
                 .build();
     }
 
@@ -149,53 +134,57 @@ public class UsageAggregationServiceImpl implements UsageAggregationService {
     /**
      * 모든 앱 사용량을 카테고리별로 그룹화하여 전체 대비 비중(%)을 계산함
      */
-    private List<CategorySummaryItem> calculateCategorySummary(UsageMetricsAggregationInput input) {
+    /**
+     * 차트 시각화에 필요한 일별, 시간대별, 카테고리별 상세 리스트 데이터를 가공함
+     * 카테고리 데이터는 이번 주 사용량과 비중을 한꺼번에 계산하여 통합 구조로 담음
+     */
+    private UsageListData createUsageListData(UsageMetricsAggregationInput input, long totalUsage) {
+        // 1. 카테고리별 합산 데이터 생성
         Map<String, Long> categoryMap = aggregateCategory(input);
-        long total = categoryMap.values().stream().mapToLong(Long::longValue).sum();
-        if (total == 0) return Collections.emptyList();
+        long totalCategoryUsage = categoryMap.values().stream().mapToLong(Long::longValue).sum();
 
-        return categoryMap.entrySet().stream()
-                .map(e -> new CategorySummaryItem(e.getKey(), round((e.getValue() / (double) total) * 100.0)))
-                .sorted(Comparator.comparingDouble(CategorySummaryItem::percent).reversed())
+        // 2. 이번 주 카테고리 리스트 가공 (사용량 및 비중 계산)
+        List<CategoryUsageItem> thisWeekCategoryList = categoryMap.entrySet().stream()
+                .map(e -> CategoryUsageItem.builder()
+                        .category(e.getKey())
+                        .usage(e.getValue())
+                        .percent(totalCategoryUsage > 0 ? round((e.getValue() / (double) totalCategoryUsage) * 100.0) : 0.0)
+                        .build()
+                )
+                .sorted(Comparator.comparingLong(CategoryUsageItem::usage).reversed())
                 .toList();
-    }
 
-        /**
-         * 차트 시각화에 필요한 일별, 시간대별, 카테고리별 상세 리스트 데이터를 가공함
-         */
-        private UsageListData createUsageListData(UsageMetricsAggregationInput input, long totalUsage) {
-            return UsageListData.builder()
-                    .totalUsage(totalUsage)
-                    .dailyUsageList(input.weeklyAppUsage().stream()
-                            .map(d -> DailyUsageItem.builder()
-                                    .date(d.date())
-                                    .day(LocalDate.parse(d.date()).getDayOfWeek().name())
-                                    .thisWeek(d.appUsageList().stream().mapToLong(a -> UsageCalculator.gbToKb(a.usedGb())).sum())
-                                    .lastWeek(0L) // Comparison 단계에서 채움
-                                    .build()
-                            )
-                            .sorted(Comparator.comparing(DailyUsageItem::date)).toList())
-                    .hourlyUsageList(aggregateHourly(input).entrySet().stream()
-                            .map(e -> HourlyUsageItem.builder()
-                                    .hour(e.getKey())
-                                    .isLateNight(e.getKey() >= LATE_NIGHT_START && e.getKey() <= LATE_NIGHT_END)
-                                    .isStudyTime(e.getKey() >= STUDY_TIME_START && e.getKey() <= STUDY_TIME_END)
-                                    .thisWeek(e.getValue())
-                                    .lastWeek(0L) // Comparison 단계에서 채움
-                                    .build()
-                            )
-                            .sorted(Comparator.comparingInt(HourlyUsageItem::hour)).toList())
-                    .categoryUsageList(aggregateCategory(input).entrySet().stream()
-                            .map(e -> CategoryUsageItem.builder()
-                                    .category(e.getKey())
-                                    .thisWeek(e.getValue())
-                                    .lastWeek(0L) // Comparison 단계에서 채움
-                                    .changeRate(0.0) // Comparison 단계에서 채움
-                                    .build()
-                            )
-                            .sorted(Comparator.comparingLong(CategoryUsageItem::thisWeek).reversed()).toList())
-                    .build();
-        }
+        return UsageListData.builder()
+                .totalUsage(totalUsage)
+                // 3. 일별 사용량 매칭 및 가공
+                .dailyUsageList(input.weeklyAppUsage().stream()
+                        .map(d -> DailyUsageItem.builder()
+                                .date(d.date())
+                                .day(LocalDate.parse(d.date()).getDayOfWeek().name())
+                                .thisWeek(d.appUsageList().stream().mapToLong(a -> UsageCalculator.gbToKb(a.usedGb())).sum())
+                                .lastWeek(0L) // Comparison 단계에서 채움
+                                .build()
+                        )
+                        .sorted(Comparator.comparing(DailyUsageItem::date)).toList())
+                // 4. 시간대별 사용량 매칭 및 가공
+                .hourlyUsageList(aggregateHourly(input).entrySet().stream()
+                        .map(e -> HourlyUsageItem.builder()
+                                .hour(e.getKey())
+                                .isLateNight(e.getKey() >= LATE_NIGHT_START && e.getKey() <= LATE_NIGHT_END)
+                                .isStudyTime(e.getKey() >= STUDY_TIME_START && e.getKey() <= STUDY_TIME_END)
+                                .thisWeek(e.getValue())
+                                .lastWeek(0L) // Comparison 단계에서 채움
+                                .build()
+                        )
+                        .sorted(Comparator.comparingInt(HourlyUsageItem::hour)).toList())
+                // 5. 통합 카테고리 컨테이너 조립 (지난주 및 비교는 다음 단계에서 채움)
+                .categoryUsageList(CategoryUsageListContainer.builder()
+                        .thisWeek(thisWeekCategoryList)
+                        .lastWeek(new ArrayList<>())
+                        .comparison(new ArrayList<>())
+                        .build())
+                .build();
+    }
     
 
     /**
