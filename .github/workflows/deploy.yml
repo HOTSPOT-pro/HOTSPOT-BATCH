@@ -1,0 +1,101 @@
+name: BATCH CD (dev)
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ap-northeast-2
+      CLUSTER: hotspot-cluster
+      SERVICE: BatchServiceStack-BatchService363E6404-LOOq32O2dIaI
+      ECR_REPO: hotspot-batch
+      CONTAINER_NAME: BatchContainer
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & Push Image
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+
+          docker buildx create --use || true
+          docker buildx build \
+            --platform linux/amd64 \
+            --provenance=false \
+            -t 121834501390.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:$IMAGE_TAG \
+            --push .
+
+      - name: Get Active Task Definition ARN From Service
+        run: |
+          TASK_DEF_ARN=$(aws ecs describe-services \
+            --cluster $CLUSTER \
+            --services $SERVICE \
+            --query 'services[0].taskDefinition' \
+            --output text)
+
+          echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
+          echo "Active task definition: $TASK_DEF_ARN"
+
+      - name: Get Current Task Definition JSON
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$TASK_DEF_ARN" \
+            --query taskDefinition > task-def.json
+
+      - name: Render New Task Definition
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          IMAGE_URI=121834501390.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:$IMAGE_TAG
+
+          jq --arg IMAGE "$IMAGE_URI" --arg NAME "$CONTAINER_NAME" '
+            .containerDefinitions |= map(
+              if .name == $NAME then
+                .image = $IMAGE
+              else
+                .
+              end
+            )
+            | del(.taskDefinitionArn)
+            | del(.revision)
+            | del(.status)
+            | del(.requiresAttributes)
+            | del(.compatibilities)
+            | del(.registeredAt)
+            | del(.registeredBy)
+          ' task-def.json > new-task-def.json
+
+      - name: Register New Revision
+        run: |
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-def.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "NEW_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
+          echo "Registered: $NEW_TASK_DEF_ARN"
+
+      - name: Update ECS Service
+        run: |
+          aws ecs update-service \
+            --cluster $CLUSTER \
+            --service $SERVICE \
+            --task-definition "$NEW_TASK_DEF_ARN"
+
+      - name: Wait For Service Stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster $CLUSTER \
+            --services $SERVICE
