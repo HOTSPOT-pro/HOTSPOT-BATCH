@@ -10,5 +10,6 @@ import lombok.Builder;
 public record ScoreData(
     int totalScore,
     String scoreLevel,
+    int scoreDiff,
     List<ScoreReason> reasons
 ) {}

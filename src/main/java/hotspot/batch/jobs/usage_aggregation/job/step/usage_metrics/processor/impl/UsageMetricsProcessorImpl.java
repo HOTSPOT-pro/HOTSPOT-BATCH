@@ -42,7 +42,7 @@ public class UsageMetricsProcessorImpl implements UsageMetricsProcessor {
         UsageComparisonResult comparison = comparisonCalculationService.calculate(input, agg);
 
         // 3. 인사이트 분석 계층 (비즈니스 로직 적용)
-        ReportInsight insight = reportInsightService.analyze(agg, comparison);
+        ReportInsight insight = reportInsightService.analyze(agg, comparison, input.lastWeekReport());
 
         // 4. 최종 리포트 조립 및 반환 (비교 수치가 포함된 comparison의 데이터를 사용)
         return WeeklyReport.builder()

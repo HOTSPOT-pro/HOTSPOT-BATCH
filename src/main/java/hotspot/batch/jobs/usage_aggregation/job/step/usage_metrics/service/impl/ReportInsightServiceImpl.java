@@ -13,6 +13,7 @@ import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreData
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.SummaryData;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageAggregationResult;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageComparisonResult;
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyReportSnapshot;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.ReportInsightService;
 import lombok.RequiredArgsConstructor;
 
@@ -46,7 +47,7 @@ public class ReportInsightServiceImpl implements ReportInsightService {
      * 집계된 수치와 전주 대비 변화를 분석하여 통합 인사이트(태그, 점수)를 반환함
      */
     @Override
-    public ReportInsight analyze(UsageAggregationResult agg, UsageComparisonResult comparison) {
+    public ReportInsight analyze(UsageAggregationResult agg, UsageComparisonResult comparison, WeeklyReportSnapshot lastWeek) {
         SummaryData summary = agg.summaryData();
         long totalUsage = agg.totalUsage();
 
@@ -54,7 +55,7 @@ public class ReportInsightServiceImpl implements ReportInsightService {
         List<ReportTag> tagList = generateTags(summary, comparison, totalUsage);
 
         // 2. 리포트 점수 계산
-        ScoreData scoreData = calculateScore(summary, comparison, totalUsage);
+        ScoreData scoreData = calculateScore(summary, comparison, totalUsage, lastWeek);
 
         return ReportInsight.builder()
                 .scoreData(scoreData)
@@ -96,7 +97,7 @@ public class ReportInsightServiceImpl implements ReportInsightService {
     /**
      * 5대 핵심 지표(사용량, 비중, 심야, 패턴, 개선도)를 정밀 분석하여 점수와 사유를 산출함
      */
-    private ScoreData calculateScore(SummaryData summary, UsageComparisonResult comparison, long totalUsage) {
+    private ScoreData calculateScore(SummaryData summary, UsageComparisonResult comparison, long totalUsage, WeeklyReportSnapshot lastWeek) {
         List<ScoreReason> reasons = new ArrayList<>();
         int score = BASE_SCORE;
 
@@ -116,7 +117,17 @@ public class ReportInsightServiceImpl implements ReportInsightService {
         else if (sleepRatio > 25.0) { score -= 20; reasons.add(new ScoreReason(-20, "심각한 심야 과사용")); }
 
         int finalScore = Math.max(0, Math.min(100, score));
-        return ScoreData.builder().totalScore(finalScore).scoreLevel(determineLevel(finalScore)).reasons(reasons).build();
+
+        // 전주 대비 점수 차이 계산
+        int lastScore = (lastWeek != null && lastWeek.scoreData() != null) ? lastWeek.scoreData().totalScore() : finalScore;
+        int scoreDiff = finalScore - lastScore;
+
+        return ScoreData.builder()
+                .totalScore(finalScore)
+                .scoreDiff(scoreDiff)
+                .scoreLevel(determineLevel(finalScore))
+                .reasons(reasons)
+                .build();
     }
 
     /**
