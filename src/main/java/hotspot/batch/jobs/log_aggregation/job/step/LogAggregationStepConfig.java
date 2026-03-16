@@ -2,8 +2,8 @@ package hotspot.batch.jobs.log_aggregation.job.step;
 
 import hotspot.batch.common.config.BatchConstants;
 import hotspot.batch.jobs.log_aggregation.repository.LogAggregationRepository.UsageAppliedEventLogRow;
-import hotspot.batch.jobs.log_aggregation.tasklet.CommitLogAggregationCursorTasklet;
-import hotspot.batch.jobs.log_aggregation.tasklet.PrepareLogAggregationWindowTasklet;
+import hotspot.batch.jobs.log_aggregation.job.step.commit.CommitLogAggregationCursorTasklet;
+import hotspot.batch.jobs.log_aggregation.job.step.prepare.PrepareLogAggregationWindowTasklet;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;

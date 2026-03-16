@@ -1,4 +1,4 @@
-package hotspot.batch.jobs.log_aggregation.tasklet;
+package hotspot.batch.jobs.log_aggregation.job.step.prepare;
 
 import hotspot.batch.jobs.log_aggregation.job.LogAggregationProjection;
 import hotspot.batch.jobs.log_aggregation.repository.LogAggregationRepository;
