@@ -3,17 +3,10 @@ package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.impl
 import java.util.ArrayList;
 import java.util.List;
 
+import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.*;
 import org.springframework.stereotype.Service;
 
 import hotspot.batch.jobs.usage_aggregation.job.ReportTag;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.CategorySummaryItem;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ReportInsight;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreReason;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ScoreData;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.SummaryData;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageAggregationResult;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageComparisonResult;
-import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyReportSnapshot;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.ReportInsightService;
 import lombok.RequiredArgsConstructor;
 
@@ -84,10 +77,10 @@ public class ReportInsightServiceImpl implements ReportInsightService {
             case LATE_NIGHT_HIGH -> (summary.hourlySummary().lateNightUsage() >= LATE_NIGHT_USAGE_MIN && 
                                     (totalUsage > 0 && (summary.hourlySummary().lateNightUsage() / (double) totalUsage * 100) >= LATE_NIGHT_RATIO_MIN));
             case USAGE_SPIKE -> comparison.kpi().totalUsage().changeRatePct() >= USAGE_SPIKE_THRESHOLD;
-            case ENTERTAINMENT_HIGH -> getCategoryRatio(summary, ENTERTAINMENT_CATEGORIES) >= ENTERTAINMENT_RATIO_MAX;
-            case STUDY_LOW -> getCategoryRatio(summary, List.of(STUDY_CATEGORY)) <= STUDY_RATIO_MIN;
+            case ENTERTAINMENT_HIGH -> getCategoryRatio(comparison.usageListData(), ENTERTAINMENT_CATEGORIES) >= ENTERTAINMENT_RATIO_MAX;
+            case STUDY_LOW -> getCategoryRatio(comparison.usageListData(), List.of(STUDY_CATEGORY)) <= STUDY_RATIO_MIN;
             case WEEKEND_BURST -> summary.dailySummary().weekdayAvg() > 0 && (summary.dailySummary().weekendAvg() / (double) summary.dailySummary().weekdayAvg() >= WEEKEND_BURST_MULTIPLIER);
-            case STUDY_FOCUS_UP -> comparison.usageListData().categoryUsageList().stream()
+            case STUDY_FOCUS_UP -> comparison.usageListData().categoryUsageList().comparison().stream()
                     .anyMatch(c -> STUDY_CATEGORY.equalsIgnoreCase(c.category()) && c.changeRate() >= STUDY_FOCUS_UP_THRESHOLD);
             case LOW_USAGE -> totalUsage > 0 && totalUsage < LOW_USAGE_THRESHOLD;
             case BALANCED_GOOD -> false;
@@ -106,8 +99,8 @@ public class ReportInsightServiceImpl implements ReportInsightService {
         else if (totalUsage > USAGE_EXCESSIVE) { score -= 20; reasons.add(new ScoreReason(-20, "과도한 사용량 경고")); }
 
         // 생산성 (25점)
-        double study = getCategoryRatio(summary, List.of(STUDY_CATEGORY));
-        double leisure = getCategoryRatio(summary, ENTERTAINMENT_CATEGORIES);
+        double study = getCategoryRatio(comparison.usageListData(), List.of(STUDY_CATEGORY));
+        double leisure = getCategoryRatio(comparison.usageListData(), ENTERTAINMENT_CATEGORIES);
         if (study > leisure && study >= 30.0) { score += 15; reasons.add(new ScoreReason(15, "높은 생산성 비중")); }
         else if (leisure >= 60.0) { score -= 10; reasons.add(new ScoreReason(-10, "여가 활동 편중")); }
 
@@ -133,10 +126,10 @@ public class ReportInsightServiceImpl implements ReportInsightService {
     /**
      * 특정 카테고리 그룹이 전체 사용량에서 차지하는 합산 비중을 구함
      */
-    private double getCategoryRatio(SummaryData summary, List<String> categories) {
-        return summary.categorySummary().stream()
+    private double getCategoryRatio(UsageListData usageListData, List<String> categories) {
+        return usageListData.categoryUsageList().thisWeek().stream()
                 .filter(c -> categories.contains(c.category().toUpperCase()))
-                .mapToDouble(CategorySummaryItem::percent).sum();
+                .mapToDouble(CategoryUsageItem::percent).sum();
     }
 
     /**
