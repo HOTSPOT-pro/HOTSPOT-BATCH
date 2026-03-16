@@ -27,7 +27,7 @@ public class DataSourceConfig {
     @Primary
     @Bean
     @BatchDataSource // 스프링 배치 메타 테이블 저장소로 명시적 지정
-    @ConfigurationProperties(prefix = "spring.datasource")
+    @ConfigurationProperties(prefix = "spring.datasource.batch")
     public DataSource batchDataSource() {
         return DataSourceBuilder.create()
                 .type(HikariDataSource.class)
