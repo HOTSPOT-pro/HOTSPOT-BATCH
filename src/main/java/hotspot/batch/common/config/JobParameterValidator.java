@@ -20,6 +20,8 @@ public class JobParameterValidator implements JobParametersValidator {
     public void validate(JobParameters parameters) throws InvalidJobParametersException {
         validateTargetDate(parameters.getString("targetDate"));
         validateYearMonth(parameters.getString("yearMonth"));
+        validatePositiveInteger(parameters.getString("targetBucketId"), "targetBucketId");
+        validatePositiveInteger(parameters.getString("sourceKeyVersion"), "sourceKeyVersion");
     }
 
     private void validateTargetDate(String targetDate) throws InvalidJobParametersException {
@@ -46,6 +48,21 @@ public class JobParameterValidator implements JobParametersValidator {
             }
         } catch (DateTimeParseException e) {
             throw new InvalidJobParametersException("Invalid yearMonth format. Required: yyyyMM");
+        }
+    }
+
+    private void validatePositiveInteger(String value, String parameterName) throws InvalidJobParametersException {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+
+        try {
+            int parsed = Integer.parseInt(value);
+            if (parsed <= 0) {
+                throw new InvalidJobParametersException(parameterName + " must be a positive integer.");
+            }
+        } catch (NumberFormatException e) {
+            throw new InvalidJobParametersException(parameterName + " must be a positive integer.");
         }
     }
 }
