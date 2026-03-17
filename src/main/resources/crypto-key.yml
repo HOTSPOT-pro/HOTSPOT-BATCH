@@ -1,0 +1,6 @@
+crypto-key:
+  chunk-size: 500
+  encryption-provider: ${ENCRYPTION_PROVIDER:local}
+  secret-key: ${SECRET_KEY:}
+  kms-key-id: ${KEK_KEY_ID:}
+  aws-region: ${AWS_REGION:}
