@@ -1,6 +1,5 @@
 package hotspot.batch.jobs.crypto_key.scheduler;
 
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
@@ -9,7 +8,8 @@ import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobOperator;
+import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -25,8 +25,9 @@ public class CryptoKeyRotationJobScheduler {
     private static final Logger log = LoggerFactory.getLogger(CryptoKeyRotationJobScheduler.class);
     private static final String JOB_NAME = "cryptoKeyRotationJob";
 
-    private final JobOperator jobOperator;
-    private final Map<String, Job> jobs;
+    private final JobLauncher jobLauncher;
+    @Qualifier("cryptoKeyRotationJob")
+    private final Job cryptoKeyRotationJob;
     private final ManualJobExecutionChecker manualJobExecutionChecker;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
@@ -43,16 +44,10 @@ public class CryptoKeyRotationJobScheduler {
         }
 
         try {
-            Job job = jobs.get(JOB_NAME);
-            if (job == null) {
-                log.warn("Skip scheduled crypto key rotation. Missing job bean name={}", JOB_NAME);
-                return;
-            }
-
             log.info("==== START Scheduled Crypto Key Rotation Batch ====");
 
-            JobExecution execution = jobOperator.start(
-                    job,
+            JobExecution execution = jobLauncher.run(
+                    cryptoKeyRotationJob,
                     new JobParametersBuilder()
                             .addLong("run.id", System.currentTimeMillis())
                             .toJobParameters());
