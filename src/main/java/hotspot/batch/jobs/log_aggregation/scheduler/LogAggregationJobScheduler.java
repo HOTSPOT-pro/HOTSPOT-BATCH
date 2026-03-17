@@ -15,7 +15,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-//@Component
+@Component
 public class LogAggregationJobScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(LogAggregationJobScheduler.class);
