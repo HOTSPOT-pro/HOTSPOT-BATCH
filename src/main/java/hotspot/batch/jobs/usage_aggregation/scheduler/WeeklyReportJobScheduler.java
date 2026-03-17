@@ -56,8 +56,8 @@ public class WeeklyReportJobScheduler {
         try {
             log.info("==== START Scheduled Weekly Report Batch Sequence ====");
             
-            // 어제 날짜 기준으로 리포트 생성 (JobParameter 전달용)
-            String targetDate = LocalDate.now().minusDays(1).format(DATE_FORMATTER);
+            // 실행 당일 날짜 기준으로 리포트 생성 (JobParameter 전달용)
+            String targetDate = LocalDate.now().format(DATE_FORMATTER);
 
             // 1. Job 1 실행: 사용량 집계 및 분석
             JobExecution execution1 = executeJob(JOB_1_NAME, targetDate);
