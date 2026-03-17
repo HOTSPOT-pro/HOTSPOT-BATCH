@@ -16,8 +16,8 @@ batch:
       cron: ${WEEKLY_REPORT_CRON:0 30 0 * * *}
   crypto-key:
     scheduler:
-      enabled: false
-      keep-alive: false
+      enabled: true
+      keep-alive: true
       cron: ${CRYPTO_KEY_ROTATION_CRON:0 0 3 * * *}
 
 spring:
