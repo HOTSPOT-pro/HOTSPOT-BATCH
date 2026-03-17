@@ -8,7 +8,7 @@ batch:
       enabled: true
       keep-alive: true
       initial-delay-ms: 5000
-      fixed-delay-ms: 2000
+      fixed-delay-ms: 60000
   weekly-report:
     scheduler:
       enabled: true
