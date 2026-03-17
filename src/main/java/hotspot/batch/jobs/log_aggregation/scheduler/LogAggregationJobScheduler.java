@@ -35,9 +35,7 @@ public class LogAggregationJobScheduler {
         this.applicationArguments = applicationArguments;
     }
 
-    @Scheduled(
-            initialDelayString = "${batch.log-aggregation.scheduler.initial-delay-ms:5000}",
-            fixedDelayString = "${batch.log-aggregation.scheduler.fixed-delay-ms:2000}")
+    @Scheduled(initialDelay = 5000, fixedDelay = 60000)
     public void run() {
         if (hasManualJobExecutionRequest()) {
             return;
