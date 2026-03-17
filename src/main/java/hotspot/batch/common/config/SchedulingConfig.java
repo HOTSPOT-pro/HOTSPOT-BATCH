@@ -13,7 +13,7 @@ public class SchedulingConfig {
     @Bean
     public TaskScheduler taskScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(1);
+        scheduler.setPoolSize(2);
         scheduler.setThreadNamePrefix("batch-scheduler-");
         scheduler.setDaemon(false);
         scheduler.setWaitForTasksToCompleteOnShutdown(true);
