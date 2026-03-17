@@ -43,6 +43,8 @@ public class BatchJobRunner implements ApplicationRunner {
         JobParametersBuilder builder = new JobParametersBuilder().addLong("run.id", System.currentTimeMillis());
         addStringParam(args, builder, "targetDate");
         addStringParam(args, builder, "yearMonth");
+        addStringParam(args, builder, "targetBucketId");
+        addStringParam(args, builder, "sourceKeyVersion");
 
         log.info("BATCH START job={}", jobName);
         JobExecution execution = jobOperator.start(job, builder.toJobParameters());
@@ -62,7 +64,16 @@ public class BatchJobRunner implements ApplicationRunner {
     }
 
     private Optional<String> findOption(ApplicationArguments args, String key) {
-        return Optional.ofNullable(args.getOptionValues(key)).flatMap(values -> values.stream().findFirst());
+        Optional<String> optionValue =
+                Optional.ofNullable(args.getOptionValues(key)).flatMap(values -> values.stream().findFirst());
+        if (optionValue.isPresent()) {
+            return optionValue;
+        }
+        String prefix = key + "=";
+        return args.getNonOptionArgs().stream()
+                .filter(arg -> arg.startsWith(prefix))
+                .map(arg -> arg.substring(prefix.length()))
+                .findFirst();
     }
 
     private void addStringParam(ApplicationArguments args, JobParametersBuilder builder, String key) {

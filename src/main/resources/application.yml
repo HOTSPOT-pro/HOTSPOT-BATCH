@@ -14,6 +14,11 @@ batch:
       enabled: true
       keep-alive: true
       cron: ${WEEKLY_REPORT_CRON:0 30 0 * * *}
+  crypto-key:
+    scheduler:
+      enabled: false
+      keep-alive: false
+      cron: ${CRYPTO_KEY_ROTATION_CRON:0 0 3 * * *}
 
 spring:
   application:
@@ -36,6 +41,7 @@ spring:
       - classpath:postgres-main.yml
       - classpath:resilience4j.yml
       - classpath:llm-config.yml
+      - classpath:crypto-key.yml
 
 ---
 spring:
