@@ -62,9 +62,7 @@ public class ReportSeedReaderConfig {
         queryProvider.setSortKeys(Map.of("sub_id", Order.ASCENDING));
 
         // 파라미터 맵 구성
-        java.util.Map<String, Object> params = new java.util.HashMap<>();
-        params.put("receiveDay", receiveDay);
-        params.put("weekStartDate", weekStartDate);
+        java.util.Map<String, Object> params = Map.of("receiveDay", receiveDay, "weekStartDate", weekStartDate);
 
         // 2. Builder를 이용한 Reader 생성 및 반환
         return new JdbcPagingItemReaderBuilder<ReportSeedInput>()
