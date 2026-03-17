@@ -2,6 +2,9 @@ package hotspot.batch.jobs.crypto_key.job;
 
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.job.flow.JobExecutionDecider;
+import org.springframework.batch.core.partition.PartitionHandler;
+import org.springframework.batch.core.partition.support.TaskExecutorPartitionHandler;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -11,6 +14,8 @@ import org.springframework.batch.infrastructure.item.database.JdbcPagingItemRead
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import hotspot.batch.common.config.JobParameterValidator;
@@ -20,6 +25,9 @@ import hotspot.batch.common.listener.TimeBasedChunkListener;
 import hotspot.batch.jobs.crypto_key.config.CryptoKeyRotationProperties;
 import hotspot.batch.jobs.crypto_key.dto.PhoneRotationTarget;
 import hotspot.batch.jobs.crypto_key.dto.PhoneRotationUpdate;
+import hotspot.batch.jobs.crypto_key.job.decider.CryptoKeyRotationModeDecider;
+import hotspot.batch.jobs.crypto_key.job.partition.CryptoKeyBucketPartitioner;
+import hotspot.batch.jobs.crypto_key.job.tasklet.BucketRotationTasklet;
 import hotspot.batch.jobs.crypto_key.job.tasklet.FinalizeRotationTasklet;
 import hotspot.batch.jobs.crypto_key.job.tasklet.PrepareRotationTasklet;
 
@@ -48,16 +56,73 @@ public class CryptoKeyRotationJobConfig {
     @Bean
     public Job cryptoKeyRotationJob(
             JobRepository jobRepository,
+            CryptoKeyRotationModeDecider cryptoKeyRotationModeDecider,
+            @Qualifier("masterRotationStep") Step masterRotationStep,
             @Qualifier("prepareRotationStep") Step prepareRotationStep,
             @Qualifier("reencryptPhoneStep") Step reencryptPhoneStep,
             @Qualifier("finalizeRotationStep") Step finalizeRotationStep) {
         return new JobBuilder("cryptoKeyRotationJob", jobRepository)
                 .validator(jobParameterValidator)
-                .start(prepareRotationStep)
+                .listener(jobResultListener)
+                .start(cryptoKeyRotationModeDecider)
+                .on("MASTER").to(masterRotationStep)
+                .from(cryptoKeyRotationModeDecider)
+                .on("WORKER").to(prepareRotationStep)
                 .next(reencryptPhoneStep)
                 .next(finalizeRotationStep)
-                .listener(jobResultListener)
+                .from(masterRotationStep).on("FAILED").fail()
+                .from(masterRotationStep).on("*").end()
+                .from(prepareRotationStep).on("FAILED").fail()
+                .from(reencryptPhoneStep).on("FAILED").fail()
+                .from(finalizeRotationStep).on("*").end()
+                .end()
                 .build();
+    }
+
+    @Bean
+    public Step masterRotationStep(
+            JobRepository jobRepository,
+            @Qualifier("cryptoKeyRotationPartitionHandler") PartitionHandler partitionHandler,
+            CryptoKeyBucketPartitioner partitioner) {
+        return new StepBuilder("masterRotationStep", jobRepository)
+                .partitioner("bucketRotationWorkerStep", partitioner)
+                .partitionHandler(partitionHandler)
+                .listener(stepResultListener)
+                .build();
+    }
+
+    @Bean
+    public Step bucketRotationWorkerStep(
+            JobRepository jobRepository,
+            @Qualifier("mainTransactionManager") PlatformTransactionManager transactionManager,
+            BucketRotationTasklet bucketRotationTasklet) {
+        return new StepBuilder("bucketRotationWorkerStep", jobRepository)
+                .tasklet(bucketRotationTasklet, transactionManager)
+                .listener(stepResultListener)
+                .build();
+    }
+
+    @Bean
+    public PartitionHandler cryptoKeyRotationPartitionHandler(
+            @Qualifier("bucketRotationWorkerStep") Step bucketRotationWorkerStep,
+            @Qualifier("cryptoKeyRotationTaskExecutor") TaskExecutor taskExecutor) {
+        TaskExecutorPartitionHandler partitionHandler = new TaskExecutorPartitionHandler();
+        partitionHandler.setStep(bucketRotationWorkerStep);
+        partitionHandler.setTaskExecutor(taskExecutor);
+        partitionHandler.setGridSize(properties.gridSize());
+        return partitionHandler;
+    }
+
+    @Bean
+    public TaskExecutor cryptoKeyRotationTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(properties.gridSize());
+        executor.setMaxPoolSize(properties.gridSize());
+        executor.setThreadNamePrefix("crypto-key-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(60);
+        executor.initialize();
+        return executor;
     }
 
     @Bean
