@@ -1,5 +1,6 @@
 package hotspot.batch.jobs.crypto_key.repository;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -74,6 +75,23 @@ public class CryptoKeyRotationRepository {
                                 rs.getString("status")))
                 .stream()
                 .findFirst();
+    }
+
+    public List<Integer> findTargetBucketIds() {
+        String sql = """
+                select distinct s.phone_key_bucket_id
+                from subscription s
+                join subscription_key sk
+                  on sk.bucket_id = s.phone_key_bucket_id
+                 and sk.key_version = s.phone_key_version
+                where s.is_deleted = false
+                  and s.phone_enc is not null
+                  and s.phone_enc <> ''
+                  and sk.status = 'active'
+                order by s.phone_key_bucket_id
+                """;
+
+        return mainJdbcTemplate.getJdbcTemplate().queryForList(sql, Integer.class);
     }
 
     public int findNextKeyVersion(int bucketId) {
