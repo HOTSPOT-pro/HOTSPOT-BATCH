@@ -21,8 +21,8 @@ public class ReencryptPhoneReaderConfig {
     @Bean
     @StepScope
     public JdbcPagingItemReader<PhoneRotationTarget> cryptoKeyRotationReader(
-            @Value("#{jobExecutionContext['targetBucketId']}") Integer bucketId,
-            @Value("#{jobExecutionContext['sourceKeyVersion']}") Integer sourceKeyVersion) {
+            @Value("#{stepExecutionContext['targetBucketId'] != null ? stepExecutionContext['targetBucketId'] : jobExecutionContext['targetBucketId']}") Integer bucketId,
+            @Value("#{stepExecutionContext['sourceKeyVersion'] != null ? stepExecutionContext['sourceKeyVersion'] : jobExecutionContext['sourceKeyVersion']}") Integer sourceKeyVersion) {
         return repository.buildRotationReader(
                 "cryptoKeyRotationReader",
                 properties.chunkSize(),

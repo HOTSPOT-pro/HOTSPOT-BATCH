@@ -9,6 +9,7 @@ import org.springframework.batch.infrastructure.item.ExecutionContext;
 import org.springframework.stereotype.Component;
 
 import hotspot.batch.jobs.crypto_key.repository.CryptoKeyRotationRepository;
+import hotspot.batch.jobs.crypto_key.service.CryptoKeyRotationLifecycleService;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 public class CryptoKeyBucketPartitioner implements Partitioner {
 
     private final CryptoKeyRotationRepository repository;
+    private final CryptoKeyRotationLifecycleService lifecycleService;
 
     @Override
     public Map<String, ExecutionContext> partition(int gridSize) {
@@ -23,8 +25,11 @@ public class CryptoKeyBucketPartitioner implements Partitioner {
         Map<String, ExecutionContext> partitions = new LinkedHashMap<>();
 
         for (int i = 0; i < bucketIds.size(); i++) {
+            var plan = lifecycleService.prepareRotation(bucketIds.get(i), null);
             ExecutionContext context = new ExecutionContext();
-            context.putInt("targetBucketId", bucketIds.get(i));
+            context.putInt("targetBucketId", plan.bucketId());
+            context.putInt("sourceKeyVersion", plan.sourceKeyVersion());
+            context.putInt("targetKeyVersion", plan.targetKeyVersion());
             partitions.put("partition" + i, context);
         }
 

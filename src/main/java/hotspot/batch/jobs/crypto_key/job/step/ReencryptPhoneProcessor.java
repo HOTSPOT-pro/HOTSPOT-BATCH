@@ -22,9 +22,9 @@ public class ReencryptPhoneProcessor implements ItemProcessor<PhoneRotationTarge
     public ReencryptPhoneProcessor(
             CryptoKeyRotationRepository repository,
             PhoneCryptoRotationService phoneCryptoRotationService,
-            @Value("#{jobExecutionContext['targetBucketId']}") Integer bucketId,
-            @Value("#{jobExecutionContext['sourceKeyVersion']}") Integer sourceKeyVersion,
-            @Value("#{jobExecutionContext['targetKeyVersion']}") Integer targetKeyVersion) {
+            @Value("#{stepExecutionContext['targetBucketId'] != null ? stepExecutionContext['targetBucketId'] : jobExecutionContext['targetBucketId']}") Integer bucketId,
+            @Value("#{stepExecutionContext['sourceKeyVersion'] != null ? stepExecutionContext['sourceKeyVersion'] : jobExecutionContext['sourceKeyVersion']}") Integer sourceKeyVersion,
+            @Value("#{stepExecutionContext['targetKeyVersion'] != null ? stepExecutionContext['targetKeyVersion'] : jobExecutionContext['targetKeyVersion']}") Integer targetKeyVersion) {
         this.targetKeyVersion = targetKeyVersion;
         this.phoneCryptoRotationService = phoneCryptoRotationService;
         this.sourceDek = phoneCryptoRotationService.unwrapDek(
