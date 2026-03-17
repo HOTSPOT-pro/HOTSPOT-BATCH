@@ -1,9 +1,9 @@
 package hotspot.batch.jobs.usage_aggregation.scheduler;
 
+import hotspot.batch.common.util.ManualJobExecutionChecker;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
@@ -13,7 +13,6 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobOperator;
-import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -36,15 +35,15 @@ public class WeeklyReportJobScheduler {
 
     private final JobOperator jobOperator;
     private final Map<String, Job> jobs;
-    private final ApplicationArguments applicationArguments;
+    private final ManualJobExecutionChecker manualJobExecutionChecker;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     /**
      * 매일 00:30분에 실행 (어제 날짜 데이터를 분석 대상으로 설정)
      */
-    @Scheduled(cron = "${batch.weekly-report.scheduler.cron}")
+    @Scheduled(cron = "${batch.weekly-report.scheduler.cron}", zone = "Asia/Seoul")
     public void run() {
-        if (hasManualJobExecutionRequest()) {
+        if (manualJobExecutionChecker.hasManualJobExecutionRequest()) {
             log.info("Skip scheduled weekly report. Manual job execution requested.");
             return;
         }
@@ -99,14 +98,5 @@ public class WeeklyReportJobScheduler {
             log.error("Job execution failed: {}", jobName, e);
             return null;
         }
-    }
-
-    private boolean hasManualJobExecutionRequest() {
-        return findOption("job.name").isPresent() || findOption("spring.batch.job.name").isPresent();
-    }
-
-    private Optional<String> findOption(String key) {
-        return Optional.ofNullable(applicationArguments.getOptionValues(key))
-                .flatMap(values -> values.stream().findFirst());
     }
 }
