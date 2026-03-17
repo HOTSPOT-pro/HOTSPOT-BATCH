@@ -20,15 +20,17 @@ public class LlmFeedbackPartitioner implements Partitioner {
 
     @Override
     public Map<String, ExecutionContext> partition(int gridSize) {
-        // AGGREGATED 상태인 데이터의 ID 최소/최대값 조회
-        long min = weeklyReportRepository.findMinIdByStatus(ReportStatus.AGGREGATED);
-        long max = weeklyReportRepository.findMaxIdByStatus(ReportStatus.AGGREGATED);
+        // AGGREGATED 상태인 데이터의 ID 최소/최대값 조회 (NullPointerException 방지를 위해 Long 래퍼 사용)
+        Long minId = weeklyReportRepository.findMinIdByStatus(ReportStatus.AGGREGATED);
+        Long maxId = weeklyReportRepository.findMaxIdByStatus(ReportStatus.AGGREGATED);
 
-        if (min == 0 || max == 0 || min > max) {
-            log.info("[Partition] No data found for processing. min={}, max={}", min, max);
+        if (minId == null || maxId == null || minId > maxId) {
+            log.info("[Partition] No data found for processing. status={}", ReportStatus.AGGREGATED);
             return Map.of();
         }
 
+        long min = minId;
+        long max = maxId;
         long targetSize = (max - min) / gridSize + 1;
         Map<String, ExecutionContext> result = new HashMap<>();
 
