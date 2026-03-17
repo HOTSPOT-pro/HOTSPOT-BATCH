@@ -49,7 +49,6 @@ public class CryptoKeyRotationLifecycleService {
         }
 
         repository.updateKeyStatus(bucketId, sourceKeyVersion, "disabled");
-        repository.updateKeyStatus(bucketId, targetKeyVersion, "active");
 
         log.info("Finalized DEK rotation. bucketId={} sourceVersion={} targetVersion={}",
                 bucketId, sourceKeyVersion, targetKeyVersion);

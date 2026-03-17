@@ -35,6 +35,7 @@ import hotspot.batch.jobs.crypto_key.job.decider.CryptoKeyRotationModeDecider;
 import hotspot.batch.jobs.crypto_key.job.listener.CryptoKeyRotationFinalizeListener;
 import hotspot.batch.jobs.crypto_key.job.listener.CryptoKeyRotationPrepareListener;
 import hotspot.batch.jobs.crypto_key.job.partition.CryptoKeyBucketPartitioner;
+import hotspot.batch.jobs.crypto_key.job.step.ReencryptPhoneProcessor;
 import hotspot.batch.jobs.crypto_key.job.tasklet.PrepareRotationTasklet;
 
 @Configuration
@@ -134,7 +135,7 @@ public class CryptoKeyRotationJobConfig {
             JobRepository jobRepository,
             @Qualifier("mainTransactionManager") PlatformTransactionManager transactionManager,
             @Qualifier("cryptoKeyRotationReader") JdbcPagingItemReader<PhoneRotationTarget> reader,
-            ItemProcessor<PhoneRotationTarget, PhoneRotationUpdate> reencryptPhoneProcessor,
+            ReencryptPhoneProcessor reencryptPhoneProcessor,
             JdbcBatchItemWriter<PhoneRotationUpdate> reencryptPhoneWriter,
             CryptoKeyRotationPrepareListener cryptoKeyRotationPrepareListener,
             CryptoKeyRotationFinalizeListener cryptoKeyRotationFinalizeListener) {
@@ -146,6 +147,7 @@ public class CryptoKeyRotationJobConfig {
                 .writer(reencryptPhoneWriter)
                 .listener(timeBasedChunkListener)
                 .listener(cryptoKeyRotationPrepareListener)
+                .listener(reencryptPhoneProcessor)
                 .listener(cryptoKeyRotationFinalizeListener)
                 .listener(stepResultListener)
                 .build();
