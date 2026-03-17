@@ -9,6 +9,11 @@ batch:
       keep-alive: true
       initial-delay-ms: 5000
       fixed-delay-ms: 2000
+  weekly-report:
+    scheduler:
+      enabled: true
+      keep-alive: true
+      cron: ${WEEKLY_REPORT_CRON:0 30 0 * * *}
 
 spring:
   application:
