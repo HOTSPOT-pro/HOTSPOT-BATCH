@@ -2,11 +2,12 @@ spring:
   datasource:
     main:
       driver-class-name: org.postgresql.Driver
-      jdbc-url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DATABASE:hotspot}
+      jdbc-url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DATABASE:hotspot}?reWriteBatchedStatements=true
       username: ${POSTGRES_USER}
       password: ${POSTGRES_PASSWORD}
       hikari:
         pool-name: HikariPool-main
+        maximum-pool-size: 20
         max-lifetime: 300000
         validation-timeout: 5000
         keepalive-time: 30000
