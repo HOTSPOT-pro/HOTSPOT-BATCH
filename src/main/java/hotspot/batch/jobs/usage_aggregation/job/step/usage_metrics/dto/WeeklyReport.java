@@ -6,20 +6,25 @@ import lombok.Builder;
 
 /**
  * 최종적으로 DB에 저장될 WeeklyReport 데이터
- * Writer는 이 객체를 받아 Bulk Update를 수행함
+ * [최종 최적화] Writer의 연산 부하를 줄이기 위해 미리 직렬화된 JSON 문자열 필드 추가
  */
 @Builder
 public record WeeklyReport(
-        Long weeklyReportId, // PK
-        Long familyId,       // 가족 식별자
-        Long subId,          // 유저 식별자
-        String name,         // 유저 이름
-        LocalDate weekStartDate, // 분석 시작일
-        LocalDate weekEndDate,   // 분석 종료일
+        Long weeklyReportId,
+        Long familyId,
+        Long subId,
+        String name,
+        LocalDate weekStartDate,
+        LocalDate weekEndDate,
         long totalUsage,
-        ScoreData scoreData, // 점수, 등급, 사유 통합
+        ScoreData scoreData,
         List<String> tags,
         SummaryData summaryData,
-        UsageListData usageListData, // 이번 주 상세 리스트
-        String reportStatus
+        UsageListData usageListData,
+        String reportStatus,
+        
+        // [추가] Writer의 성능 향상을 위해 미리 변환된 JSON 필드
+        String scoreJson,
+        String summaryJson,
+        String usageListJson
 ) {}
