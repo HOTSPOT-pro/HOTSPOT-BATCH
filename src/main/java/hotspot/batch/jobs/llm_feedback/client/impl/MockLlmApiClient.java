@@ -19,7 +19,7 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Service
-@Profile("mock")
+// @Profile("mock")
 public class MockLlmApiClient implements LlmApiClient {
 
     private final Random random = new Random();
@@ -32,10 +32,10 @@ public class MockLlmApiClient implements LlmApiClient {
             return Mono.error(new RuntimeException("Mock API Failure"));
         }
 
-        // 1초 지연 후 더미 데이터 반환 (비동기 병렬 처리 확인용)
+        // 10ms 지연 후 더미 데이터 반환 (비동기 병렬 처리 확인용)
         return Mono.just(createDummyFeedback())
-                .delayElement(Duration.ofSeconds(1))
-                .doOnNext(data -> log.info("[MOCK] Generated dummy feedback successfully"));
+                .delayElement(Duration.ofMillis(10));
+                // .doOnNext(data -> log.info("[MOCK] Generated dummy feedback successfully"));
     }
 
     private AiFeedback createDummyFeedback() {

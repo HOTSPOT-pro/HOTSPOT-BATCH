@@ -34,7 +34,7 @@ public class LlmFeedbackProcessor {
     @Bean
     public ItemProcessor<LlmFeedbackWeeklyReport, LlmFeedbackWeeklyReport> llmFeedbackProcessorDelegate() {
         return item -> {
-            log.info("Generating AI Feedback for weeklyReportId: {}", item.weeklyReportId());
+            // log.info("Generating AI Feedback for weeklyReportId: {}", item.weeklyReportId());
             
             // 1. 시스템/사용자 메시지 쌍 생성
             PromptMessages messages = promptManager.createPromptMessages(item);
@@ -45,7 +45,7 @@ public class LlmFeedbackProcessor {
                         .block(); 
                 
                 if (aiFeedback == null) {
-                    log.warn("AI Feedback generation failed for reportId: {}. Item will be filtered out.", item.weeklyReportId());
+                    // log.warn("AI Feedback generation failed for reportId: {}. Item will be filtered out.", item.weeklyReportId());
                     return null;
                 }
 
