@@ -24,9 +24,9 @@ import reactor.core.publisher.Mono;
  * OpenAI API 호출 실제 구현체
  */
 @Slf4j
-@Service
+// @Service
 @RequiredArgsConstructor
-@Profile("!mock")
+// @Profile("!mock")
 public class OpenAiApiClient implements LlmApiClient {
 
     private final WebClient llmWebClient;

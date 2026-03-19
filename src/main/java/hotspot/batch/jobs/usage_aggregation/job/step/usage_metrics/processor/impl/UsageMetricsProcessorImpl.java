@@ -74,6 +74,7 @@ public class UsageMetricsProcessorImpl implements UsageMetricsProcessor {
 
         int currentCalc = calcCount.incrementAndGet();
 
+        /*
         if (currentCalc % 200 == 0) {
             log.info("[Processor-Detail] Count: {} | Skips: {} | Avg Times (ms): [Agg: {}, Comp: {}, Insight: {}, Json: {}]", 
                      currentCalc, 
@@ -84,6 +85,7 @@ public class UsageMetricsProcessorImpl implements UsageMetricsProcessor {
                      formatMs(jsonTotalNs.get(), currentCalc)
             );
         }
+        */
 
         return WeeklyReport.builder()
                 .weeklyReportId(input.basicInfo().weeklyReportId())
