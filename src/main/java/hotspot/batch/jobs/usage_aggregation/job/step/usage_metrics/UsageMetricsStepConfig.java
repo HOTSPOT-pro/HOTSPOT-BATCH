@@ -1,6 +1,5 @@
 package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics;
 
-
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyReport;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.processor.UsageMetricsProcessor;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.writer.UsageMetricsWriter;
@@ -9,7 +8,6 @@ import org.springframework.batch.core.partition.support.TaskExecutorPartitionHan
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
-import org.springframework.batch.infrastructure.item.database.JdbcBatchItemWriter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,11 +20,11 @@ import hotspot.batch.common.listener.TimeBasedChunkListener;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageMetricsAggregationInput;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.partition.WeeklyReportPartitioner;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.reader.UsageMetricsReader;
-
 import hotspot.batch.common.listener.StepResultListener;
 
 /**
  * Step2: 지표 집계 및 스냅샷 생성 Step 설정.
+ * [Phase 7] Partitioning 방식으로 원복하되, 전용 스레드 풀 분리를 통해 성능과 안정성 확보
  */
 @Configuration
 public class UsageMetricsStepConfig {
@@ -52,13 +50,12 @@ public class UsageMetricsStepConfig {
         return new StepBuilder("usageMetricsStep", jobRepository)
                 .partitioner("usageMetricsWorkerStep", weeklyReportPartitioner)
                 .partitionHandler(usageMetricsPartitionHandler)
-                .listener(stepResultListener) // Add StepResultListener here
+                .listener(stepResultListener)
                 .build();
     }
 
     /**
-     * Step2 Worker Step: 실제 데이터를 읽고 처리하는 핵심 단계.
-     * Spring Batch 5.x에서는 chunk(int, PlatformTransactionManager) 형식을 권장함.
+     * Step2 Worker Step: 파티션별로 독립적인 Reader 인스턴스를 사용하여 병렬 I/O 수행
      */
     @Bean
     public Step usageMetricsWorkerStep(
@@ -69,13 +66,12 @@ public class UsageMetricsStepConfig {
             UsageMetricsWriter usageMetricsWriter) {
         
         return new StepBuilder("usageMetricsWorkerStep", jobRepository)
-                .<UsageMetricsAggregationInput, WeeklyReport>chunk(BatchConstants.CHUNK_SIZE)
-                .transactionManager(transactionManager)
+                .<UsageMetricsAggregationInput, WeeklyReport>chunk(BatchConstants.CHUNK_SIZE, transactionManager)
                 .reader(usageMetricsReader)
                 .processor(usageMetricsProcessor)
                 .writer(usageMetricsWriter)
                 .listener(timeBasedChunkListener)
-                .listener(stepResultListener) // Add StepResultListener here
+                .listener(stepResultListener)
                 .build();
     }
 
@@ -95,28 +91,27 @@ public class UsageMetricsStepConfig {
     }
 
     /**
-     * Worker Step 병렬 처리를 위한 전용 Thread Pool 설정.
+     * 파티션 실행을 위한 스레드 풀
      */
     @Bean
     public TaskExecutor usageMetricsTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(BatchConstants.GRID_SIZE);
         executor.setMaxPoolSize(BatchConstants.GRID_SIZE);
-        executor.setThreadNamePrefix("usage-metrics-");
-        executor.setWaitForTasksToCompleteOnShutdown(true); // 활성 태스크 완료 대기
-        executor.setAwaitTerminationSeconds(60);             // 60초까지 대기
+        executor.setThreadNamePrefix("usage-part-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.initialize();
         return executor;
     }
 
     /**
      * Reader의 Pre-fetching 비동기 작업을 위한 전용 Thread Pool
-     * [Phase 6 조정] GRID_SIZE 기반으로 최적화 (4개 파티션 * 4 = 16)
+     * 파티션 스레드와 분리하여 데드락을 방지하고 병렬 I/O 가속
      */
     @Bean
     public TaskExecutor usageMetricsPreFetchExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        // 파티션당 3~4개의 I/O 작업 수행을 고려
+        // 각 파티션이 3개의 비동기 작업을 수행하므로 넉넉하게 설정
         executor.setCorePoolSize(BatchConstants.GRID_SIZE * 4);
         executor.setMaxPoolSize(BatchConstants.GRID_SIZE * 8);
         executor.setThreadNamePrefix("pre-fetch-");

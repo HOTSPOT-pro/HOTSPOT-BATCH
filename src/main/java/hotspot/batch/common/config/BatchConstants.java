@@ -11,15 +11,13 @@ public final class BatchConstants {
 
     /**
      * 기본 Chunk 처리 크기
-     * [Phase 6 조정] 1000 -> 500 (메모리 및 Redis 부하 감소)
      */
-    public static final int CHUNK_SIZE = 500;
+    public static final int CHUNK_SIZE = 1000;
 
     /**
      * 기본 병렬 처리 스레드 수 (Grid Size)
-     * [Phase 6 조정] 8 -> 4 (로컬 환경 컨텍스트 스위칭 최적화)
      */
-    public static final int GRID_SIZE = 4;
+    public static final int GRID_SIZE = 8;
 
     /**
      * Job2 Chunk 처리 크기
