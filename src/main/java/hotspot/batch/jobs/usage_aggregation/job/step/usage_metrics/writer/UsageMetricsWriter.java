@@ -4,33 +4,31 @@ import java.sql.Array;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.sql.DataSource;
 
 import org.postgresql.util.PGobject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.batch.core.annotation.BeforeStep;
+import org.springframework.batch.core.step.StepExecution;
+import org.springframework.batch.infrastructure.item.Chunk;
 import org.springframework.batch.infrastructure.item.database.JdbcBatchItemWriter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
-import hotspot.batch.common.util.JsonConverter;
 import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyReport;
 
-/**
- * 분석이 완료된 WeeklyReport 데이터를 DB에 일괄 업데이트하는 Writer
- * 최신 DDL 기준: total_score, score_level 컬럼은 제외하고 score_data(JSONB)에 통합 저장함
- */
 @Component("usageMetricsJdbcWriter")
 public class UsageMetricsWriter extends JdbcBatchItemWriter<WeeklyReport> {
 
-    private final DataSource dataSource;
-    private final JsonConverter jsonConverter;
+    private static final Logger log = LoggerFactory.getLogger(UsageMetricsWriter.class);
+    private StepExecution stepExecution;
+    private final AtomicInteger totalWriteCount = new AtomicInteger(0);
 
-    public UsageMetricsWriter(@Qualifier("batchDataSource") DataSource dataSource, JsonConverter jsonConverter) {
-        this.dataSource = dataSource;
-        this.jsonConverter = jsonConverter;
-
-        // 최신 DDL 반영: total_score, score_level 컬럼 제거
+    public UsageMetricsWriter(@Qualifier("batchDataSource") DataSource dataSource) {
         String sql = """
                 UPDATE weekly_report SET
                     total_usage = ?,
@@ -46,47 +44,43 @@ public class UsageMetricsWriter extends JdbcBatchItemWriter<WeeklyReport> {
         this.setDataSource(dataSource);
         this.setSql(sql);
         this.setItemPreparedStatementSetter(this::setParameters);
+        this.setAssertUpdates(false);
     }
 
-    /**
-     * DB 컬럼과 DTO 필드 간의 매핑 로직
-     */
+    @BeforeStep
+    public void saveStepExecution(StepExecution stepExecution) {
+        this.stepExecution = stepExecution;
+    }
+
+    @Override
+    public void write(Chunk<? extends WeeklyReport> chunk) throws Exception {
+        long start = System.currentTimeMillis();
+        super.write(chunk);
+        long duration = System.currentTimeMillis() - start;
+        
+        int currentTotal = totalWriteCount.addAndGet(chunk.size());
+        
+        log.info("[Part-Writer] DB Update -> {}ms | Items: {} (Cumulative: {}) | Step: {}", 
+                 duration, chunk.size(), currentTotal, stepExecution.getStepName());
+    }
+
     private void setParameters(WeeklyReport item, PreparedStatement ps) throws SQLException {
-        // 1. total_usage
         ps.setLong(1, item.totalUsage());
-        
-        // 2. score_data (JSONB)
-        ps.setObject(2, createPgObject(jsonConverter.toJson(item.scoreData())));
-        
-        // 3. tags (VARCHAR[])
+        ps.setObject(2, createPgObject(item.scoreJson()));
         ps.setArray(3, createSqlArray(item.tags(), ps));
-        
-        // 4. summary_data (JSONB)
-        ps.setObject(4, createPgObject(jsonConverter.toJson(item.summaryData())));
-        
-        // 5. usage_list_data (JSONB)
-        ps.setObject(5, createPgObject(jsonConverter.toJson(item.usageListData())));
-        
-        // 6. report_status (VARCHAR)
+        ps.setObject(4, createPgObject(item.summaryJson()));
+        ps.setObject(5, createPgObject(item.usageListJson()));
         ps.setString(6, ReportStatus.AGGREGATED.name());
-        
-        // 7. weekly_report_id (WHERE 조건)
         ps.setLong(7, item.weeklyReportId());
     }
 
-    /**
-     * JSON 데이터를 PostgreSQL JSONB 타입으로 변환함
-     */
     private PGobject createPgObject(String json) throws SQLException {
         PGobject pgObject = new PGobject();
         pgObject.setType("jsonb");
-        pgObject.setValue(json);
+        pgObject.setValue(json != null ? json : "{}");
         return pgObject;
     }
 
-    /**
-     * String 리스트를 PostgreSQL의 VARCHAR[] 타입으로 변환함
-     */
     private Array createSqlArray(List<String> tags, PreparedStatement ps) throws SQLException {
         if (tags == null || tags.isEmpty()) {
             return ps.getConnection().createArrayOf("varchar", new String[0]);

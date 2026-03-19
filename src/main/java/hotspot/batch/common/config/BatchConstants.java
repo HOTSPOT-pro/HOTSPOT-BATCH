@@ -11,13 +11,15 @@ public final class BatchConstants {
 
     /**
      * 기본 Chunk 처리 크기
+     * [최종 최적화] 1000 -> 200 (I/O 갭 제거 및 회전율 극대화)
      */
-    public static final int CHUNK_SIZE = 1000;
+    public static final int CHUNK_SIZE = 200;
 
     /**
      * 기본 병렬 처리 스레드 수 (Grid Size)
+     * [최종 최적화] 8 -> 4 (로컬 환경 CPU 컨텍스트 스위칭 최적화)
      */
-    public static final int GRID_SIZE = 8;
+    public static final int GRID_SIZE = 4;
 
     /**
      * Job2 Chunk 처리 크기

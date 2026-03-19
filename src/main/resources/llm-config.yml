@@ -25,5 +25,5 @@ llm:
     base-url: ${LLM_CLIENT_BASE_URL:https://api.openai.com}
     connect-timeout-millis: ${LLM_CLIENT_CONNECT_TIMEOUT:5000}
     read-timeout-millis: ${LLM_CLIENT_READ_TIMEOUT:60000}
-    max-connections: ${LLM_CLIENT_MAX_CONNECTIONS:100}
-    pending-acquire-max-count: ${LLM_CLIENT_PENDING_MAX:500}
+    max-connections: ${LLM_CLIENT_MAX_CONNECTIONS:500}
+    pending-acquire-max-count: ${LLM_CLIENT_PENDING_MAX:1000}

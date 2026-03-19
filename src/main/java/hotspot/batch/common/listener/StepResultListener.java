@@ -1,7 +1,6 @@
 package hotspot.batch.common.listener;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.listener.StepExecutionListener;
 import org.springframework.batch.core.step.StepExecution;
@@ -10,47 +9,39 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.LocalDateTime;
 
+@Slf4j
 @Component
 public class StepResultListener implements StepExecutionListener {
 
-    private static final Logger log = LoggerFactory.getLogger(StepResultListener.class);
-
     @Override
     public void beforeStep(StepExecution stepExecution) {
-        log.info("STEP START step={} job={} executionId={}",
-                stepExecution.getStepName(),
-                stepExecution.getJobExecution().getJobInstance().getJobName(),
-                stepExecution.getJobExecutionId());
+        log.info(">>> [STEP START] : {} | Parameters: {}", 
+                 stepExecution.getStepName(), stepExecution.getJobParameters());
     }
 
     @Override
     public ExitStatus afterStep(StepExecution stepExecution) {
-        LocalDateTime start = stepExecution.getStartTime();
-        LocalDateTime end = stepExecution.getEndTime();
-        long durationMs = (start != null && end != null) ? Duration.between(start, end).toMillis() : 0L;
-
-        String stepName = stepExecution.getStepName();
-        String jobName = stepExecution.getJobExecution().getJobInstance().getJobName();
-        long executionId = stepExecution.getJobExecutionId();
-        String status = stepExecution.getExitStatus().getExitCode();
+        LocalDateTime startTime = stepExecution.getStartTime();
+        LocalDateTime endTime = LocalDateTime.now();
+        long durationMillis = Duration.between(startTime, endTime).toMillis();
+        double durationSec = durationMillis / 1000.0;
+        
         long readCount = stepExecution.getReadCount();
         long writeCount = stepExecution.getWriteCount();
         long commitCount = stepExecution.getCommitCount();
-        long rollbackCount = stepExecution.getRollbackCount();
-        long filterCount = stepExecution.getFilterCount();
-
-        if (stepExecution.getExitStatus().equals(ExitStatus.FAILED)) {
-            log.error("STEP FAILED step={} job={} executionId={} status={} read={} write={} commit={} rollback={} filter={} durationMs={}",
-                    stepName, jobName, executionId, status, readCount, writeCount, commitCount, rollbackCount, filterCount, durationMs);
-        } else {
-            log.info("STEP SUCCESS step={} job={} executionId={} status={} read={} write={} commit={} rollback={} filter={} durationMs={}",
-                    stepName, jobName, executionId, status, readCount, writeCount, commitCount, rollbackCount, filterCount, durationMs);
-        }
-
-        if (stepExecution.getFailureExceptions() != null && !stepExecution.getFailureExceptions().isEmpty()) {
-            stepExecution.getFailureExceptions().forEach(e -> log.error("Step {} failed with exception: {}", stepName, e));
-        }
         
+        double tps = durationSec > 0 ? (writeCount / durationSec) : 0;
+
+        log.info("--------------------------------------------------");
+        log.info(">>> [STEP PERFORMANCE REPORT : {}]", stepExecution.getStepName());
+        log.info("> Status         : {}", stepExecution.getExitStatus().getExitCode());
+        log.info("> Duration       : {} sec ({} ms)", String.format("%.2f", durationSec), durationMillis);
+        log.info("> Throughput     : {} TPS (Items/sec)", String.format("%.2f", tps));
+        log.info("> Total Counts   : Read={}, Write={}, Skip={}, Filter={}", 
+                 readCount, writeCount, stepExecution.getSkipCount(), stepExecution.getFilterCount());
+        log.info("> Commits        : {}, Rollbacks: {}", commitCount, stepExecution.getRollbackCount());
+        log.info("--------------------------------------------------");
+
         return stepExecution.getExitStatus();
     }
 }

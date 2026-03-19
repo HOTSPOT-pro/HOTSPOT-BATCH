@@ -2,13 +2,15 @@ spring:
   datasource:
     batch:
       driver-class-name: org.postgresql.Driver
-      jdbc-url: jdbc:postgresql://${POSTGRES_BATCH_HOST:localhost}:${POSTGRES_BATCH_PORT:5432}/${POSTGRES_BATCH_DATABASE:hotspot_batch}
+      jdbc-url: jdbc:postgresql://${POSTGRES_BATCH_HOST:localhost}:${POSTGRES_BATCH_PORT:5432}/${POSTGRES_BATCH_DATABASE:hotspot_batch}?reWriteBatchedStatements=true&prepareThreshold=0
       username: ${POSTGRES_BATCH_USER}
       password: ${POSTGRES_BATCH_PASSWORD}
       hikari:
+        maximum-pool-size: 30
         max-lifetime: 300000
         validation-timeout: 5000
         keepalive-time: 30000
+        connection-init-sql: SET synchronous_commit = off
 
     jpa:
       database: postgresql

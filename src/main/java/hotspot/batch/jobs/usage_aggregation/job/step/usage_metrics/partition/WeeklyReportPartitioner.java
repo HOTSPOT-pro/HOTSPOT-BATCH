@@ -5,47 +5,23 @@ import java.util.Map;
 
 import org.springframework.batch.core.partition.Partitioner;
 import org.springframework.batch.infrastructure.item.ExecutionContext;
-
 import org.springframework.stereotype.Component;
 
-import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
-import hotspot.batch.jobs.usage_aggregation.repository.WeeklyReportRepository;
-import lombok.RequiredArgsConstructor;
-
 /**
- * Step2 대상 처리 범위를 report_id 기준으로 분배하는 partitioner
+ * Step2 대상 처리 범위를 ID의 나머지(MOD) 기준으로 균등하게 분배하는 Partitioner
+ * [최종 개선] Modular Partitioning + DB 함수 기반 인덱스 조합으로 부하 분산 및 속도 동시 해결
  */
 @Component
-@RequiredArgsConstructor
 public class WeeklyReportPartitioner implements Partitioner {
-
-    private final WeeklyReportRepository weeklyReportRepository;
 
     @Override
     public Map<String, ExecutionContext> partition(int gridSize) {
-        Long minId = weeklyReportRepository.findMinIdByStatus(ReportStatus.PENDING);
-        Long maxId = weeklyReportRepository.findMaxIdByStatus(ReportStatus.PENDING);
-
         Map<String, ExecutionContext> partitions = new LinkedHashMap<>();
 
-        if (minId == null || maxId == null || minId > maxId) {
-            return partitions;
-        }
-
-        long targetCount = maxId - minId + 1;
-        long partitionSize = (targetCount / gridSize) + 1;
-
         for (int i = 0; i < gridSize; i++) {
-            long startId = minId + (i * partitionSize);
-            long endId = Math.min(maxId, startId + partitionSize - 1);
-
-            if (startId > maxId) {
-                break;
-            }
-
             ExecutionContext context = new ExecutionContext();
-            context.putLong("startId", startId);
-            context.putLong("endId", endId);
+            context.putInt("gridSize", gridSize);   // 나눌 수 (8)
+            context.putInt("remainder", i);         // 나머지 값 (0~7)
             partitions.put("partition" + i, context);
         }
 

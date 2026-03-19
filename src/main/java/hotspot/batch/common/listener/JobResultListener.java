@@ -9,6 +9,9 @@ import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.listener.JobExecutionListener;
 import org.springframework.stereotype.Component;
 
+/**
+ * Job 실행 전체의 시작/종료와 총 소요 시간을 요약하여 기록하는 리스너
+ */
 @Component
 public class JobResultListener implements JobExecutionListener {
 
@@ -16,27 +19,28 @@ public class JobResultListener implements JobExecutionListener {
 
     @Override
     public void beforeJob(JobExecution jobExecution) {
-        log.info("JOB START job={} executionId={}",
-                jobExecution.getJobInstance().getJobName(), jobExecution.getId());
+        log.info("==================================================");
+        log.info(">>> [JOB START] : {}", jobExecution.getJobInstance().getJobName());
+        log.info(">>> Execution ID : {}", jobExecution.getId());
+        log.info("==================================================");
     }
 
     @Override
     public void afterJob(JobExecution jobExecution) {
         LocalDateTime start = jobExecution.getStartTime();
-        LocalDateTime end = jobExecution.getEndTime();
-        long durationMs = (start != null && end != null) ? Duration.between(start, end).toMillis() : 0L;
+        LocalDateTime end = LocalDateTime.now();
+        long durationMs = (start != null) ? Duration.between(start, end).toMillis() : 0L;
+        double durationMin = durationMs / 60000.0;
 
+        log.info("==================================================");
+        log.info(">>> [JOB SUMMARY : {}]", jobExecution.getJobInstance().getJobName());
+        log.info("> Final Status   : {}", jobExecution.getStatus());
+        log.info("> Total Duration : {} min ({} sec)", 
+                 String.format("%.2f", durationMin), String.format("%.3f", durationMs / 1000.0));
+        
         if (jobExecution.getStatus().isUnsuccessful()) {
-            log.error("JOB FAILED job={} status={} durationMs={}",
-                    jobExecution.getJobInstance().getJobName(),
-                    jobExecution.getStatus(),
-                    durationMs);
-            return;
+            log.error(">>> [JOB FAILED] Check the step error logs for root cause.");
         }
-
-        log.info("JOB SUCCESS job={} status={} durationMs={}",
-                jobExecution.getJobInstance().getJobName(),
-                jobExecution.getStatus(),
-                durationMs);
+        log.info("==================================================");
     }
 }

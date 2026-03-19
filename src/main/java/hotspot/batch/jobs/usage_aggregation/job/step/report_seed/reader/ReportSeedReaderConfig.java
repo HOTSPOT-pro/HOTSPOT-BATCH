@@ -2,9 +2,15 @@ package hotspot.batch.jobs.usage_aggregation.job.step.report_seed.reader;
 
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.sql.DataSource;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
+import org.springframework.batch.infrastructure.item.ExecutionContext;
+import org.springframework.batch.infrastructure.item.ItemStreamException;
+import org.springframework.batch.infrastructure.item.ItemStreamReader;
 import org.springframework.batch.infrastructure.item.database.JdbcPagingItemReader;
 import org.springframework.batch.infrastructure.item.database.Order;
 import org.springframework.batch.infrastructure.item.database.builder.JdbcPagingItemReaderBuilder;
@@ -22,9 +28,11 @@ import hotspot.batch.jobs.usage_aggregation.job.step.report_seed.dto.ReportSeedI
 @Configuration
 public class ReportSeedReaderConfig {
 
+    private static final Logger log = LoggerFactory.getLogger(ReportSeedReaderConfig.class);
+
     @Bean
     @StepScope
-    public JdbcPagingItemReader<ReportSeedInput> reportSeedReader(
+    public ItemStreamReader<ReportSeedInput> reportSeedReader(
             @Qualifier("mainDataSource") DataSource mainDataSource,
             UsageAggregationDateCalculator dateCalculator,
             @Value("#{jobParameters['targetDate']}") String targetDate) throws Exception {
@@ -32,7 +40,6 @@ public class ReportSeedReaderConfig {
         String receiveDay = dateCalculator.getReceiveDay(dateCalculator.getBaseDate(targetDate));
         LocalDate weekStartDate = dateCalculator.getWeekStartDate(dateCalculator.getBaseDate(targetDate));
 
-        // 1. QueryProvider 설정 (PostgreSQL 전용, 인라인 뷰 방식)
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
         queryProvider.setSelectClause("family_id, sub_id, name");
         queryProvider.setFromClause("""
@@ -46,32 +53,43 @@ public class ReportSeedReaderConfig {
                    AND m.is_deleted = false 
                    AND s.is_deleted = false) AS target_data
                 """);
-
-        /* [운영 시 주석 제거] 중복 생성 방지를 위한 필터링 조건
-        queryProvider.setWhereClause("""
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM weekly_report wr 
-                    WHERE wr.sub_id = target_data.sub_id 
-                      AND wr.week_start_date = :weekStartDate
-                )
-                """);
-        */
-        queryProvider.setWhereClause(null);
-
-        // 정렬 키는 이제 유일해진 sub_id 사용
+        
         queryProvider.setSortKeys(Map.of("sub_id", Order.ASCENDING));
+        Map<String, Object> params = Map.of("receiveDay", receiveDay, "weekStartDate", weekStartDate);
 
-        // 파라미터 맵 구성
-        java.util.Map<String, Object> params = Map.of("receiveDay", receiveDay, "weekStartDate", weekStartDate);
-
-        // 2. Builder를 이용한 Reader 생성 및 반환
-        return new JdbcPagingItemReaderBuilder<ReportSeedInput>()
-                .name("reportSeedReader")
+        JdbcPagingItemReader<ReportSeedInput> delegate = new JdbcPagingItemReaderBuilder<ReportSeedInput>()
+                .name("reportSeedReaderDelegate")
                 .dataSource(mainDataSource)
                 .queryProvider(queryProvider)
                 .parameterValues(params)
                 .pageSize(BatchConstants.CHUNK_SIZE)
+                .fetchSize(BatchConstants.CHUNK_SIZE)
                 .rowMapper(new DataClassRowMapper<>(ReportSeedInput.class))
+                .saveState(false)
                 .build();
+
+        // 컴파일 에러 해결을 위해 ItemStreamReader 구현체로 반환
+        return new ItemStreamReader<ReportSeedInput>() {
+            private final AtomicInteger count = new AtomicInteger(0);
+
+            @Override
+            public ReportSeedInput read() throws Exception {
+                ReportSeedInput item = delegate.read();
+                if (item != null) {
+                    int current = count.incrementAndGet();
+                    if (current % 1000 == 0) {
+                        log.info("[Seed-Reader] Reading main DB targets... Cumulative: {}", current);
+                    }
+                }
+                return item;
+            }
+
+            @Override
+            public void open(ExecutionContext executionContext) throws ItemStreamException { delegate.open(executionContext); }
+            @Override
+            public void update(ExecutionContext executionContext) throws ItemStreamException { delegate.update(executionContext); }
+            @Override
+            public void close() throws ItemStreamException { delegate.close(); }
+        };
     }
 }
