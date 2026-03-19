@@ -3,24 +3,27 @@ package hotspot.batch.common.util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.stereotype.Component;
 
 /**
  * JSON 데이터와 Java 객체 간의 변환을 담당하는 유틸리티
- * PostgreSQL의 JSONB 컬럼 처리를 위해 사용됨
+ * ObjectWriter/Reader를 재사용하여 성능 최적화
  */
 @Component
 public class JsonConverter {
 
     private final ObjectMapper objectMapper;
+    private final ObjectWriter objectWriter;
 
     public JsonConverter() {
         this.objectMapper = new ObjectMapper();
-        // Java 8 날짜/시간 API(LocalDate, LocalDateTime 등) 지원을 위해 모듈 등록
         this.objectMapper.registerModule(new JavaTimeModule());
-        // DTO에 없는 필드가 JSON에 있어도 에러를 내지 않도록 설정
         this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        
+        // Writer를 미리 생성하여 writeValueAsString 호출 시의 오버헤드 감소
+        this.objectWriter = this.objectMapper.writer();
     }
 
     /**
@@ -29,9 +32,9 @@ public class JsonConverter {
     public <T> T fromJson(String json, Class<T> clazz) {
         if (json == null || json.isBlank() || clazz == null) return null;
         try {
+            // Reader를 매번 생성하지 않고 cache하여 사용 가능하나, clazz가 다양하므로 기본 readValue 사용
             return objectMapper.readValue(json, clazz);
         } catch (JsonProcessingException e) {
-            // JSON 파싱 실패 시 RuntimeException으로 전환하여 트랜잭션 롤백 유도
             throw new RuntimeException("Failed to parse JSON string to " + clazz.getSimpleName(), e);
         }
     }
@@ -42,9 +45,8 @@ public class JsonConverter {
     public String toJson(Object obj) {
         if (obj == null) return null;
         try {
-            return objectMapper.writeValueAsString(obj);
+            return objectWriter.writeValueAsString(obj);
         } catch (JsonProcessingException e) {
-            // JSON 직렬화 실패 시 RuntimeException으로 전환하여 트랜잭션 롤백 유도
             throw new RuntimeException("Failed to serialize object to JSON string", e);
         }
     }

@@ -1,5 +1,6 @@
 package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.processor.impl;
 
+import hotspot.batch.common.util.JsonConverter;
 import hotspot.batch.jobs.usage_aggregation.job.ReportStatus;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.ReportInsight;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.UsageAggregationResult;
@@ -14,37 +15,76 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * UsageMetricsProcessor의 구현체
- * 집계(Aggregation), 비교(Comparison), 분석(Insight) 3단계 레이어를 호출하여 리포트를 생성함
+ * [최적화] nanoTime 정밀 측정 및 가독성 개선
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class UsageMetricsProcessorImpl implements UsageMetricsProcessor {
 
-    private final UsageAggregationService usageAggregationService; // 데이터 집계 (요약, 리스트, 총합)
-    private final ComparisonCalculationService comparisonCalculationService; // 데이터 비교 (전주 대비)
-    private final ReportInsightService reportInsightService; // 인사이트 분석 (태그, 점수)
+    private final UsageAggregationService usageAggregationService;
+    private final ComparisonCalculationService comparisonCalculationService;
+    private final ReportInsightService reportInsightService;
+    private final JsonConverter jsonConverter;
 
-    /**
-     * 분석 파이프라인을 실행하여 최종 WeeklyReport를 생성함
-     */
+    private final AtomicInteger skipCount = new AtomicInteger(0);
+    private final AtomicInteger calcCount = new AtomicInteger(0);
+    private final AtomicLong aggTotalNs = new AtomicLong(0);
+    private final AtomicLong compTotalNs = new AtomicLong(0);
+    private final AtomicLong insightTotalNs = new AtomicLong(0);
+    private final AtomicLong jsonTotalNs = new AtomicLong(0);
+
     @Override
     public WeeklyReport process(UsageMetricsAggregationInput input) throws Exception {
         if (input == null) return null;
 
-        // 1. 데이터 집계 계층 (이번 주 수치 가공 - lastWeek은 0으로 초기화됨)
+        if (isEmptyUsage(input)) {
+            skipCount.incrementAndGet();
+            return buildEmptyReport(input);
+        }
+
+        // 1. 집계 (Aggregation)
+        long t1 = System.nanoTime();
         UsageAggregationResult agg = usageAggregationService.aggregate(input);
+        long t2 = System.nanoTime();
+        aggTotalNs.addAndGet(t2 - t1);
 
-        // 2. 데이터 비교 계층 (지난주 vs 이번 주 병합 및 비교 수치 산출)
-        // agg를 넘겨서 그 결과를 바탕으로 lastWeek 필드가 채워진 새로운 comparison을 얻음
+        // 2. 비교 (Comparison)
         UsageComparisonResult comparison = comparisonCalculationService.calculate(input, agg);
+        long t3 = System.nanoTime();
+        compTotalNs.addAndGet(t3 - t2);
 
-        // 3. 인사이트 분석 계층 (비즈니스 로직 적용)
+        // 3. 인사이트 (Insight)
         ReportInsight insight = reportInsightService.analyze(agg, comparison, input.lastWeekReport());
+        long t4 = System.nanoTime();
+        insightTotalNs.addAndGet(t4 - t3);
 
-        // 4. 최종 리포트 조립 및 반환 (비교 수치가 포함된 comparison의 데이터를 사용)
+        // 4. 직렬화 (JSON Serialization)
+        String scoreJson = jsonConverter.toJson(insight.scoreData());
+        String summaryJson = jsonConverter.toJson(comparison.summaryData());
+        String usageListJson = jsonConverter.toJson(comparison.usageListData());
+        long t5 = System.nanoTime();
+        jsonTotalNs.addAndGet(t5 - t4);
+
+        int currentCalc = calcCount.incrementAndGet();
+
+        if (currentCalc % 200 == 0) {
+            log.info("[Processor-Detail] Count: {} | Skips: {} | Avg Times (ms): [Agg: {}, Comp: {}, Insight: {}, Json: {}]", 
+                     currentCalc, 
+                     skipCount.get(),
+                     formatMs(aggTotalNs.get(), currentCalc),
+                     formatMs(compTotalNs.get(), currentCalc),
+                     formatMs(insightTotalNs.get(), currentCalc),
+                     formatMs(jsonTotalNs.get(), currentCalc)
+            );
+        }
+
         return WeeklyReport.builder()
                 .weeklyReportId(input.basicInfo().weeklyReportId())
                 .familyId(input.basicInfo().familyId())
@@ -53,11 +93,40 @@ public class UsageMetricsProcessorImpl implements UsageMetricsProcessor {
                 .weekStartDate(input.basicInfo().weekStartDate())
                 .weekEndDate(input.basicInfo().weekEndDate())
                 .totalUsage(agg.totalUsage())
-                .summaryData(comparison.summaryData()) // 비교 수치가 포함된 데이터
-                .usageListData(comparison.usageListData()) // lastWeek이 포함된 데이터
+                .summaryData(comparison.summaryData())
+                .usageListData(comparison.usageListData())
                 .scoreData(insight.scoreData())
                 .tags(insight.tags())
                 .reportStatus(ReportStatus.AGGREGATED.name())
+                .scoreJson(scoreJson)
+                .summaryJson(summaryJson)
+                .usageListJson(usageListJson)
+                .build();
+    }
+
+    private String formatMs(long totalNs, int count) {
+        return String.format("%.3f", (double) totalNs / count / 1_000_000.0);
+    }
+
+    private boolean isEmptyUsage(UsageMetricsAggregationInput input) {
+        return (input.weeklyAppUsage() == null || input.weeklyAppUsage().isEmpty()) &&
+               (input.weeklyHourlyUsage() == null || input.weeklyHourlyUsage().isEmpty());
+    }
+
+    private WeeklyReport buildEmptyReport(UsageMetricsAggregationInput input) {
+        return WeeklyReport.builder()
+                .weeklyReportId(input.basicInfo().weeklyReportId())
+                .familyId(input.basicInfo().familyId())
+                .subId(input.basicInfo().subId())
+                .name(input.basicInfo().name())
+                .weekStartDate(input.basicInfo().weekStartDate())
+                .weekEndDate(input.basicInfo().weekEndDate())
+                .totalUsage(0L)
+                .tags(Collections.emptyList())
+                .reportStatus(ReportStatus.AGGREGATED.name())
+                .scoreJson("{}")
+                .summaryJson("{}")
+                .usageListJson("[]")
                 .build();
     }
 }

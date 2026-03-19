@@ -4,8 +4,8 @@ import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
+import org.springframework.batch.infrastructure.item.ItemReader;
 import org.springframework.batch.infrastructure.item.database.JdbcBatchItemWriter;
-import org.springframework.batch.infrastructure.item.database.JdbcPagingItemReader;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,7 +22,6 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Step1: 리포트 생성 대상자 선정 및 Seed 데이터 생성 (Multi-threaded Chunk 방식)
- * - Phase 1 성능 개선: AsyncTaskExecutor 도입을 통한 병렬 처리
  */
 @Slf4j
 @Configuration
@@ -32,7 +31,7 @@ public class ReportSeedStepConfig {
     public Step reportSeedStep(
             JobRepository jobRepository,
             @Qualifier("batchTransactionManager") PlatformTransactionManager batchTransactionManager,
-            JdbcPagingItemReader<ReportSeedInput> reportSeedReader,
+            ItemReader<ReportSeedInput> reportSeedReader, // [수정] JdbcPagingItemReader -> ItemReader로 변경
             ItemProcessor<ReportSeedInput, WeeklyReport> reportSeedProcessor,
             JdbcBatchItemWriter<WeeklyReport> reportSeedWriter,
             StepResultListener stepResultListener,
@@ -42,8 +41,7 @@ public class ReportSeedStepConfig {
                  BatchConstants.CHUNK_SIZE, BatchConstants.GRID_SIZE);
 
         return new StepBuilder("reportSeedStep", jobRepository)
-                .<ReportSeedInput, WeeklyReport>chunk(BatchConstants.CHUNK_SIZE)
-                .transactionManager(batchTransactionManager)
+                .<ReportSeedInput, WeeklyReport>chunk(BatchConstants.CHUNK_SIZE, batchTransactionManager)
                 .reader(reportSeedReader)
                 .processor(reportSeedProcessor)
                 .writer(reportSeedWriter)
@@ -52,9 +50,6 @@ public class ReportSeedStepConfig {
                 .build();
     }
 
-    /**
-     * Step1 전용 Thread Pool 설정
-     */
     @Bean
     public AsyncTaskExecutor reportSeedTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();

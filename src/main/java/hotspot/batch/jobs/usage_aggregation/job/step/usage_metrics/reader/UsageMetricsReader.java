@@ -1,12 +1,10 @@
 package hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.reader;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 import javax.sql.DataSource;
@@ -36,10 +34,6 @@ import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.LastW
 import hotspot.batch.jobs.usage_aggregation.repository.ReportUsageAppRedisRepository;
 import hotspot.batch.jobs.usage_aggregation.repository.ReportUsageHourlyRedisRepository;
 
-/**
- * Step2: "Bulk Pre-fetching" 기능이 있는 Reader
- * [최종 최적화] Chunk Size 하향 및 비동기 오버헤드 제거를 통한 로그 갭(Gap) 해결 버전
- */
 @Component
 @StepScope
 public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregationInput> {
@@ -51,33 +45,44 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
     private final ReportUsageAppRedisRepository reportUsageAppRedisRepository;
     private final ReportUsageHourlyRedisRepository reportUsageHourlyRedisRepository;
     
+    // I/O 가속을 위한 전용 스레드 풀 (GRID_SIZE=4, 각 파티션당 8개 이상의 Future가 생성되므로 32개로 확장)
+    private static final ExecutorService ioExecutor = Executors.newFixedThreadPool(32);
+    
     private final Queue<UsageMetricsAggregationInput> buffer = new LinkedList<>();
+    private final Integer remainder;
+    private int totalProcessed = 0;
 
     public UsageMetricsReader(
             DataSource dataSource,
             LastWeekUsageService lastWeekUsageService,
             ReportUsageAppRedisRepository reportUsageAppRedisRepository,
             ReportUsageHourlyRedisRepository reportUsageHourlyRedisRepository,
+            hotspot.batch.jobs.usage_aggregation.job.UsageAggregationDateCalculator dateCalculator,
+            @Value("#{jobParameters['targetDate']}") String targetDate,
             @Value("#{stepExecutionContext['gridSize']}") Integer gridSize,
             @Value("#{stepExecutionContext['remainder']}") Integer remainder) {
 
         this.lastWeekUsageService = lastWeekUsageService;
         this.reportUsageAppRedisRepository = reportUsageAppRedisRepository;
         this.reportUsageHourlyRedisRepository = reportUsageHourlyRedisRepository;
+        this.remainder = remainder;
 
-        // 1. 파라미터 설정
+        // Step 1과 동일한 날짜 보정 로직 적용
+        java.time.LocalDate baseDate = dateCalculator.getBaseDate(targetDate);
+        java.time.LocalDate calculatedTargetDate = dateCalculator.getWeekStartDate(baseDate);
+        
+        log.info("[Part-{}] Initializing Reader for calculated date: {} (Original: {})", remainder, calculatedTargetDate, targetDate);
+
         Map<String, Object> parameters = Map.of(
-                "status", ReportStatus.PENDING.name(),
+                "statuses", List.of(ReportStatus.PENDING.name(), ReportStatus.AGGREGATED.name()),
+                "targetDate", calculatedTargetDate,
                 "gridSize", gridSize,
                 "remainder", remainder);
 
-        // 2. QueryProvider 설정 (Modular 쿼리 유지)
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
-        queryProvider.setSelectClause(
-            "weekly_report_id, family_id, sub_id, name, week_start_date, week_end_date"
-        );
+        queryProvider.setSelectClause("weekly_report_id, family_id, sub_id, name, week_start_date, week_end_date");
         queryProvider.setFromClause("from weekly_report");
-        queryProvider.setWhereClause("where report_status = :status and MOD(weekly_report_id, :gridSize) = :remainder");
+        queryProvider.setWhereClause("where report_status in (:statuses) and week_start_date = :targetDate and MOD(weekly_report_id, :gridSize) = :remainder");
         queryProvider.setSortKeys(Map.of("weekly_report_id", Order.ASCENDING));
 
         try {
@@ -87,7 +92,7 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
                     .queryProvider(queryProvider)
                     .parameterValues(parameters)
                     .pageSize(BatchConstants.CHUNK_SIZE)
-                    .fetchSize(BatchConstants.CHUNK_SIZE) // fetchSize 매칭
+                    .fetchSize(BatchConstants.CHUNK_SIZE)
                     .rowMapper(new DataClassRowMapper<>(ReportBasicInfo.class))
                     .saveState(false)
                     .build();
@@ -104,13 +109,8 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
         return buffer.poll();
     }
 
-    /**
-     * [최종 최적화] 스레드 간 경합을 줄이기 위해 비동기 조율 로직 제거 (Sequential I/O)
-     * 작은 Chunk Size(200) 덕분에 순차 호출이 훨씬 더 안정적이고 빠르게 응답함.
-     */
     private void fillBuffer() throws Exception {
         List<ReportBasicInfo> rawInfos = new ArrayList<>();
-        
         for (int i = 0; i < BatchConstants.CHUNK_SIZE; i++) {
             ReportBasicInfo info = delegate.read();
             if (info == null) break;
@@ -119,26 +119,55 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
 
         if (rawInfos.isEmpty()) return;
 
+        long start = System.currentTimeMillis();
         List<Long> subIds = rawInfos.stream().map(ReportBasicInfo::subId).toList();
-        ReportBasicInfo first = rawInfos.get(0);
+        LocalDate startDay = rawInfos.get(0).weekStartDate();
+        LocalDate endDay = rawInfos.get(0).weekEndDate();
+
+        // 1. Redis 조회를 병렬 그룹으로 분할 (Parallel Pipelining)
+        // 200건을 50건씩 4개 그룹으로 분할
+        int groupSize = 50;
+        List<List<Long>> subIdGroups = new ArrayList<>();
+        for (int i = 0; i < subIds.size(); i += groupSize) {
+            subIdGroups.add(subIds.subList(i, Math.min(i + groupSize, subIds.size())));
+        }
+
+        // Redis 비동기 호출 리스트
+        List<CompletableFuture<Map<Long, List<DailyAppUsage>>>> appFutures = subIdGroups.stream()
+                .map(group -> CompletableFuture.supplyAsync(() -> 
+                        reportUsageAppRedisRepository.findBulkWeeklyAppUsage(group, startDay, endDay), ioExecutor))
+                .toList();
+
+        List<CompletableFuture<Map<Long, List<DailyHourlyUsage>>>> hourlyFutures = subIdGroups.stream()
+                .map(group -> CompletableFuture.supplyAsync(() -> 
+                        reportUsageHourlyRedisRepository.findBulkWeeklyHourlyUsage(group, startDay, endDay), ioExecutor))
+                .toList();
+
+        // 2. DB 조회 비동기 호출 (Snapshot)
+        Map<Long, LocalDate> lastReportDateMap = rawInfos.stream().collect(Collectors.toMap(ReportBasicInfo::subId, info -> info.weekStartDate().minusDays(7)));
+        LocalDate targetLastWeekDate = lastReportDateMap.values().iterator().next();
+        log.info("[Part-{}] Searching last week reports for date: {}", remainder, targetLastWeekDate);
         
-        long totalStart = System.currentTimeMillis();
+        CompletableFuture<Map<Long, WeeklyReportSnapshot>> lastWeekFuture = CompletableFuture.supplyAsync(() -> 
+                lastWeekUsageService.getBulkSnapshotList(lastReportDateMap), ioExecutor);
 
-        // 1. 앱 사용량 조회 (Redis Pipeline)
-        Map<Long, List<DailyAppUsage>> appUsageMap = reportUsageAppRedisRepository.findBulkWeeklyAppUsage(
-                subIds, first.weekStartDate(), first.weekEndDate());
+        // 모든 Future 대기
+        CompletableFuture.allOf(appFutures.toArray(new CompletableFuture[0])).join();
+        CompletableFuture.allOf(hourlyFutures.toArray(new CompletableFuture[0])).join();
+        lastWeekFuture.join();
 
-        // 2. 시간대별 사용량 조회 (Redis Pipeline)
-        Map<Long, List<DailyHourlyUsage>> hourlyUsageMap = reportUsageHourlyRedisRepository.findBulkWeeklyHourlyUsage(
-                subIds, first.weekStartDate(), first.weekEndDate());
+        // 결과 병합
+        Map<Long, List<DailyAppUsage>> appUsageMap = new HashMap<>();
+        for (var f : appFutures) appUsageMap.putAll(f.get());
+        
+        Map<Long, List<DailyHourlyUsage>> hourlyUsageMap = new HashMap<>();
+        for (var f : hourlyFutures) hourlyUsageMap.putAll(f.get());
+        
+        Map<Long, WeeklyReportSnapshot> lastWeekMap = lastWeekFuture.get();
 
-        // 3. 지난주 스냅샷 조회 (DB Bulk)
-        Map<Long, LocalDate> lastReportDateMap = rawInfos.stream()
-            .collect(Collectors.toMap(ReportBasicInfo::subId, info -> info.weekStartDate().minusDays(7)));
-        Map<Long, WeeklyReportSnapshot> lastWeekMap = lastWeekUsageService.getBulkSnapshotList(lastReportDateMap);
-
-        log.debug("[Perf-Reader-Final] FillBuffer Time: {} ms for {} items", 
-                 (System.currentTimeMillis() - totalStart), rawInfos.size());
+        totalProcessed += rawInfos.size();
+        log.info("[Part-{}] Reader Accelerated I/O -> Total: {}ms | Processed: {}", 
+                 remainder, (System.currentTimeMillis() - start), totalProcessed);
 
         for (ReportBasicInfo info : rawInfos) {
             buffer.add(new UsageMetricsAggregationInput(
@@ -151,18 +180,9 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
     }
 
     @Override
-    public void open(ExecutionContext executionContext) throws ItemStreamException {
-        delegate.open(executionContext);
-    }
-
+    public void open(ExecutionContext executionContext) throws ItemStreamException { delegate.open(executionContext); }
     @Override
-    public void update(ExecutionContext executionContext) throws ItemStreamException {
-        delegate.update(executionContext);
-    }
-
+    public void update(ExecutionContext executionContext) throws ItemStreamException { delegate.update(executionContext); }
     @Override
-    public void close() throws ItemStreamException {
-        delegate.close();
-        buffer.clear();
-    }
+    public void close() throws ItemStreamException { delegate.close(); buffer.clear(); }
 }

@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * 3시간 단위 시간대별 사용량 Redis 조회를 담당하는 리포지토리
+ * [최종 최적화] 스트림 및 불필요한 sum 연산 제거로 Redis 응답 처리 속도 극대화
  */
 @Repository
 @RequiredArgsConstructor
@@ -32,80 +33,72 @@ public class ReportUsageHourlyRedisRepository {
 
     private final StringRedisTemplate redisTemplate;
 
-    /**
-     * 다수 사용자의 지정된 기간(일주일) 동안의 시간대별 사용량 데이터를 Redis Pipeline으로 벌크 조회함
-     * 앱별 사용량 조회 방식과 동일하게 startDate부터 endDate까지의 모든 데이터를 한 번에 가져옴
-     */
     public Map<Long, List<DailyHourlyUsage>> findBulkWeeklyHourlyUsage(List<Long> subIds, LocalDate startDate, LocalDate endDate) {
         if (subIds.isEmpty()) return Collections.emptyMap();
 
-        // 1. 조회 기간 내의 날짜 리스트 생성 (앱별 조회 로직과 동일)
         List<LocalDate> dates = new ArrayList<>();
         for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
             dates.add(date);
         }
 
-        //log.info("[Redis-Hourly] Fetching data for {} subIds from {} to {}", subIds.size(), startDate, endDate);
-
-        // 2. Redis Pipeline 실행: 1,000명 기준 7일치 Hash 데이터를 단일 네트워크 통신으로 조회
         List<Object> pipelineResults = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
             for (Long subId : subIds) {
                 for (LocalDate date : dates) {
-                    // 키 빌더를 통해 usage:3hourly:{subId}:{YYYYMMDD} 키 생성
-                    String key = ReportUsageRedisKeyBuilder.dailyHourlyUsage(subId, date);
-                    connection.hashCommands().hGetAll(key.getBytes());
+                    byte[] key = ReportUsageRedisKeyBuilder.dailyHourlyUsage(subId, date).getBytes();
+                    connection.hashCommands().hGetAll(key);
                 }
             }
             return null;
         });
 
-        // 3. 결과 매핑 및 반환
         return mapResults(subIds, dates, pipelineResults);
     }
 
     /**
-     * 파이프라인 응답 결과를 유저별 일주일치 리스트로 재구성함
+     * [최적화] 스트림과 불필요한 로그/합계 연산을 제거하여 CPU 부하 절감
      */
     private Map<Long, List<DailyHourlyUsage>> mapResults(List<Long> subIds, List<LocalDate> dates, List<Object> results) {
-        Map<Long, List<DailyHourlyUsage>> finalMap = new HashMap<>();
+        Map<Long, List<DailyHourlyUsage>> finalMap = new HashMap<>(subIds.size());
         int resultIndex = 0;
 
         for (Long subId : subIds) {
-            List<DailyHourlyUsage> weeklyList = new ArrayList<>();
+            List<DailyHourlyUsage> weeklyList = new ArrayList<>(dates.size());
             for (LocalDate date : dates) {
-                // Redis Hash 결과(String 매핑)를 맵으로 수신
                 Map<String, String> rawMap = (Map<String, String>) results.get(resultIndex++);
-
-                if (rawMap == null || rawMap.isEmpty()) {
-                    log.debug("[Redis-Hourly] No data found for subId: {}, date: {}", subId, date);
-                }
-
+                // [최적화] parseHourlyMap 내부에서 빈 맵 처리 효율화
                 weeklyList.add(new DailyHourlyUsage(date.toString(), parseHourlyMap(rawMap)));
             }
-
-            long userTotal = weeklyList.stream()
-                    .flatMap(d -> d.hourlyUsage().values().stream())
-                    .mapToLong(Long::longValue).sum();
-            //log.info("[Redis-Hourly] SubId: {} - Total weekly hourly usage: {} KB", subId, userTotal);
-
             finalMap.put(subId, weeklyList);
         }
         return finalMap;
     }
 
     /**
-     * 00시부터 21시까지 3시간 단위 필드를 순회하며 사용량 데이터를 파싱함
+     * [최적화] String.format 생략 및 직접 키 매핑으로 속도 향상
      */
     private Map<Integer, Long> parseHourlyMap(Map<String, String> raw) {
-        Map<Integer, Long> map = new HashMap<>();
-        if (raw == null || raw.isEmpty()) return map;
+        if (raw == null || raw.isEmpty()) return Collections.emptyMap();
 
-        for (int h = HOUR_START; h < HOUR_END; h += HOUR_INTERVAL) {
-            String field = String.format(HOURLY_USAGE_FIELD_FORMAT, h);
-            String value = raw.get(field);
-            // 데이터가 없는 경우 0L로 처리하여 연산의 안정성 확보
-            map.put(h, value == null ? 0L : Long.parseLong(value));
-        }
+        Map<Integer, Long> map = new HashMap<>(8);
+        // 00, 03, 06, 09, 12, 15, 18, 21 직접 매핑 (루프 내 format 오버헤드 제거)
+        map.put(0, parseLong(raw.get("00_used")));
+        map.put(3, parseLong(raw.get("03_used")));
+        map.put(6, parseLong(raw.get("06_used")));
+        map.put(9, parseLong(raw.get("09_used")));
+        map.put(12, parseLong(raw.get("12_used")));
+        map.put(15, parseLong(raw.get("15_used")));
+        map.put(18, parseLong(raw.get("18_used")));
+        map.put(21, parseLong(raw.get("21_used")));
+        
         return map;
+    }
+
+    private Long parseLong(String val) {
+        if (val == null) return 0L;
+        try {
+            return Long.parseLong(val);
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 }
