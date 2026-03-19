@@ -36,6 +36,10 @@ import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.service.LastW
 import hotspot.batch.jobs.usage_aggregation.repository.ReportUsageAppRedisRepository;
 import hotspot.batch.jobs.usage_aggregation.repository.ReportUsageHourlyRedisRepository;
 
+import java.util.concurrent.CompletableFuture;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.beans.factory.annotation.Qualifier;
+
 /**
  * Step2: "Bulk Pre-fetching" 기능이 있는 Reader
  * Step 1에서 생성된 PENDING 상태의 리포트 데이터를 읽어 분석 단계로 전달함
@@ -50,6 +54,7 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
     private final LastWeekUsageService lastWeekUsageService;
     private final ReportUsageAppRedisRepository reportUsageAppRedisRepository;
     private final ReportUsageHourlyRedisRepository reportUsageHourlyRedisRepository;
+    private final TaskExecutor taskExecutor;
     
     private final Queue<UsageMetricsAggregationInput> buffer = new LinkedList<>();
 
@@ -58,12 +63,14 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
             LastWeekUsageService lastWeekUsageService,
             ReportUsageAppRedisRepository reportUsageAppRedisRepository,
             ReportUsageHourlyRedisRepository reportUsageHourlyRedisRepository,
+            @Qualifier("usageMetricsTaskExecutor") TaskExecutor taskExecutor,
             @Value("#{stepExecutionContext['startId']}") Long startId,
             @Value("#{stepExecutionContext['endId']}") Long endId) {
 
         this.lastWeekUsageService = lastWeekUsageService;
         this.reportUsageAppRedisRepository = reportUsageAppRedisRepository;
         this.reportUsageHourlyRedisRepository = reportUsageHourlyRedisRepository;
+        this.taskExecutor = taskExecutor;
 
         // 1. 상태값 및 범위 파라미터 설정
         Map<String, Object> parameters = Map.of(
@@ -105,6 +112,7 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
 
     /**
      * Chunk 단위로 데이터를 미리 읽어와 Redis 및 지난주 데이터를 벌크로 채워 넣는 핵심 로직
+     * [Phase 2 개선] CompletableFuture를 활용한 비동기 병렬 I/O 처리
      */
     private void fillBuffer() throws Exception {
         List<ReportBasicInfo> rawInfos = new ArrayList<>();
@@ -124,26 +132,35 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
         
         long totalStart = System.currentTimeMillis();
 
-        // 4. 이번 주 일별/앱별 사용량 벌크 조회 (Redis ZSet)
-        long s1 = System.currentTimeMillis();
-        Map<Long, List<DailyAppUsage>> appUsageMap = reportUsageAppRedisRepository.findBulkWeeklyAppUsage(
-                subIds, first.weekStartDate(), first.weekEndDate());
-        log.info("[Perf-Reader] Redis AppUsage fetch: {} ms", (System.currentTimeMillis() - s1));
+        // 4. 비동기 작업 정의
+        CompletableFuture<Map<Long, List<DailyAppUsage>>> appUsageFuture = CompletableFuture.supplyAsync(
+            () -> reportUsageAppRedisRepository.findBulkWeeklyAppUsage(subIds, first.weekStartDate(), first.weekEndDate()), 
+            taskExecutor
+        );
 
-        // 5. 이번 주 일별/시간대별 사용량 벌크 조회 (Redis Hash)
-        long s2 = System.currentTimeMillis();
-        Map<Long, List<DailyHourlyUsage>> hourlyUsageMap = reportUsageHourlyRedisRepository.findBulkWeeklyHourlyUsage(
-                subIds, first.weekStartDate(), first.weekEndDate());
-        log.info("[Perf-Reader] Redis HourlyUsage fetch: {} ms", (System.currentTimeMillis() - s2));
+        CompletableFuture<Map<Long, List<DailyHourlyUsage>>> hourlyUsageFuture = CompletableFuture.supplyAsync(
+            () -> reportUsageHourlyRedisRepository.findBulkWeeklyHourlyUsage(subIds, first.weekStartDate(), first.weekEndDate()), 
+            taskExecutor
+        );
 
-        // 6. 지난주 리포트 스냅샷 벌크 조회 (DB)
-        long s3 = System.currentTimeMillis();
-        Map<Long, LocalDate> lastReportDateMap = rawInfos.stream()
-            .collect(Collectors.toMap(ReportBasicInfo::subId, info -> info.weekStartDate().minusDays(7)));
-        Map<Long, WeeklyReportSnapshot> lastWeekMap = lastWeekUsageService.getBulkSnapshotList(lastReportDateMap);
-        log.info("[Perf-Reader] DB LastWeekSnapshot fetch: {} ms", (System.currentTimeMillis() - s3));
+        CompletableFuture<Map<Long, WeeklyReportSnapshot>> lastWeekFuture = CompletableFuture.supplyAsync(
+            () -> {
+                Map<Long, LocalDate> lastReportDateMap = rawInfos.stream()
+                    .collect(Collectors.toMap(ReportBasicInfo::subId, info -> info.weekStartDate().minusDays(7)));
+                return lastWeekUsageService.getBulkSnapshotList(lastReportDateMap);
+            }, 
+            taskExecutor
+        );
 
-        log.info("[Perf-Reader] Total fillBuffer I/O time: {} ms for {} items", (System.currentTimeMillis() - totalStart), rawInfos.size());
+        // 5. 모든 작업 완료 대기
+        CompletableFuture.allOf(appUsageFuture, hourlyUsageFuture, lastWeekFuture).join();
+
+        Map<Long, List<DailyAppUsage>> appUsageMap = appUsageFuture.get();
+        Map<Long, List<DailyHourlyUsage>> hourlyUsageMap = hourlyUsageFuture.get();
+        Map<Long, WeeklyReportSnapshot> lastWeekMap = lastWeekFuture.get();
+
+        log.info("[Perf-Reader-Optimized] Total fillBuffer I/O time: {} ms for {} items (Parallel)", 
+                 (System.currentTimeMillis() - totalStart), rawInfos.size());
 
         // 7. 모든 데이터를 조합하여 버퍼 적재
         for (ReportBasicInfo info : rawInfos) {
