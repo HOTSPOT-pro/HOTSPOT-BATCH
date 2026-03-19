@@ -63,7 +63,7 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
             LastWeekUsageService lastWeekUsageService,
             ReportUsageAppRedisRepository reportUsageAppRedisRepository,
             ReportUsageHourlyRedisRepository reportUsageHourlyRedisRepository,
-            @Qualifier("usageMetricsTaskExecutor") TaskExecutor taskExecutor,
+            @Qualifier("usageMetricsPreFetchExecutor") TaskExecutor taskExecutor,
             @Value("#{stepExecutionContext['startId']}") Long startId,
             @Value("#{stepExecutionContext['endId']}") Long endId) {
 

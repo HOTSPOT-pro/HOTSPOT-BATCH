@@ -46,6 +46,7 @@ public class UsageMetricsWriter extends JdbcBatchItemWriter<WeeklyReport> {
         this.setDataSource(dataSource);
         this.setSql(sql);
         this.setItemPreparedStatementSetter(this::setParameters);
+        this.setAssertUpdates(false); // [Phase 5 로직 개선] 배치 업데이트 결과 확인 생략 (성능 향상)
     }
 
     /**

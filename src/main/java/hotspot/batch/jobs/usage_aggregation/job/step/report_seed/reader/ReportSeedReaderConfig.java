@@ -47,16 +47,9 @@ public class ReportSeedReaderConfig {
                    AND s.is_deleted = false) AS target_data
                 """);
 
-        /* [운영 시 주석 제거] 중복 생성 방지를 위한 필터링 조건
-        queryProvider.setWhereClause("""
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM weekly_report wr 
-                    WHERE wr.sub_id = target_data.sub_id 
-                      AND wr.week_start_date = :weekStartDate
-                )
-                """);
-        */
+        // [수정] DB 분리 상황이므로 Reader에서 weekly_report 중복 체크 불가 (제거)
         queryProvider.setWhereClause(null);
+        
         queryProvider.setSortKeys(Map.of("sub_id", Order.ASCENDING));
 
         // 파라미터 맵 구성
@@ -69,6 +62,7 @@ public class ReportSeedReaderConfig {
                 .queryProvider(queryProvider)
                 .parameterValues(params)
                 .pageSize(BatchConstants.CHUNK_SIZE)
+                .fetchSize(BatchConstants.CHUNK_SIZE) // fetchSize 명시적 설정
                 .rowMapper(new DataClassRowMapper<>(ReportSeedInput.class))
                 .saveState(false)
                 .build();

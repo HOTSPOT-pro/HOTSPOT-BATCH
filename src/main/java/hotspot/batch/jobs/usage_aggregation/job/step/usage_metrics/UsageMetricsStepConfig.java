@@ -108,4 +108,20 @@ public class UsageMetricsStepConfig {
         executor.initialize();
         return executor;
     }
+
+    /**
+     * Reader의 Pre-fetching 비동기 작업을 위한 전용 Thread Pool
+     * [Phase 6 조정] GRID_SIZE 기반으로 최적화 (4개 파티션 * 4 = 16)
+     */
+    @Bean
+    public TaskExecutor usageMetricsPreFetchExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        // 파티션당 3~4개의 I/O 작업 수행을 고려
+        executor.setCorePoolSize(BatchConstants.GRID_SIZE * 4);
+        executor.setMaxPoolSize(BatchConstants.GRID_SIZE * 8);
+        executor.setThreadNamePrefix("pre-fetch-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.initialize();
+        return executor;
+    }
 }
