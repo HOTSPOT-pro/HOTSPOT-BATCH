@@ -57,8 +57,6 @@ public class ReportSeedReaderConfig {
                 """);
         */
         queryProvider.setWhereClause(null);
-
-        // 정렬 키는 이제 유일해진 sub_id 사용
         queryProvider.setSortKeys(Map.of("sub_id", Order.ASCENDING));
 
         // 파라미터 맵 구성
@@ -72,6 +70,7 @@ public class ReportSeedReaderConfig {
                 .parameterValues(params)
                 .pageSize(BatchConstants.CHUNK_SIZE)
                 .rowMapper(new DataClassRowMapper<>(ReportSeedInput.class))
+                .saveState(false)
                 .build();
     }
 }

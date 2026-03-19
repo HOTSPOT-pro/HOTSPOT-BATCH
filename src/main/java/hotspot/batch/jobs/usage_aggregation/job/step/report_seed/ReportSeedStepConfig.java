@@ -9,29 +9,37 @@ import org.springframework.batch.infrastructure.item.database.JdbcPagingItemRead
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.AsyncTaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import hotspot.batch.common.config.BatchConstants;
 import hotspot.batch.jobs.usage_aggregation.job.step.report_seed.dto.ReportSeedInput;
 import hotspot.batch.jobs.usage_aggregation.job.step.usage_metrics.dto.WeeklyReport;
-
 import hotspot.batch.common.listener.StepResultListener;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
- * Step1: 리포트 생성 대상자 선정 및 Seed 데이터 생성 (Chunk 방식)
- * 메인 DB(hotspot)에서 데이터를 읽어 배치 DB(hotspot-batch)로 전송함
+ * Step1: 리포트 생성 대상자 선정 및 Seed 데이터 생성 (Multi-threaded Chunk 방식)
+ * - Phase 1 성능 개선: AsyncTaskExecutor 도입을 통한 병렬 처리
  */
+@Slf4j
 @Configuration
 public class ReportSeedStepConfig {
 
     @Bean
     public Step reportSeedStep(
             JobRepository jobRepository,
-            @Qualifier("batchTransactionManager") PlatformTransactionManager batchTransactionManager, // 배치 DB의 트랜잭션 매니저 주입
+            @Qualifier("batchTransactionManager") PlatformTransactionManager batchTransactionManager,
             JdbcPagingItemReader<ReportSeedInput> reportSeedReader,
             ItemProcessor<ReportSeedInput, WeeklyReport> reportSeedProcessor,
             JdbcBatchItemWriter<WeeklyReport> reportSeedWriter,
-            StepResultListener stepResultListener) { // StepResultListener 주입
+            StepResultListener stepResultListener,
+            @Qualifier("reportSeedTaskExecutor") AsyncTaskExecutor taskExecutor) {
+
+        log.info("[ReportSeed-Optimized] Initializing Multi-threaded Step1 with Chunk Size: {}, Thread Pool: {}", 
+                 BatchConstants.CHUNK_SIZE, BatchConstants.GRID_SIZE);
 
         return new StepBuilder("reportSeedStep", jobRepository)
                 .<ReportSeedInput, WeeklyReport>chunk(BatchConstants.CHUNK_SIZE)
@@ -39,7 +47,22 @@ public class ReportSeedStepConfig {
                 .reader(reportSeedReader)
                 .processor(reportSeedProcessor)
                 .writer(reportSeedWriter)
-                .listener(stepResultListener) // StepResultListener 추가
+                .taskExecutor(taskExecutor)
+                .listener(stepResultListener)
                 .build();
+    }
+
+    /**
+     * Step1 전용 Thread Pool 설정
+     */
+    @Bean
+    public AsyncTaskExecutor reportSeedTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(BatchConstants.GRID_SIZE);
+        executor.setMaxPoolSize(BatchConstants.GRID_SIZE);
+        executor.setThreadNamePrefix("seed-thread-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.initialize();
+        return executor;
     }
 }
