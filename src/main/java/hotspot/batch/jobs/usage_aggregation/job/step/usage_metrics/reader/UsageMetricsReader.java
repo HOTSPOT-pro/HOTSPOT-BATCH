@@ -7,7 +7,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import javax.sql.DataSource;
@@ -22,9 +21,7 @@ import org.springframework.batch.infrastructure.item.database.JdbcPagingItemRead
 import org.springframework.batch.infrastructure.item.database.Order;
 import org.springframework.batch.infrastructure.item.database.builder.JdbcPagingItemReaderBuilder;
 import org.springframework.batch.infrastructure.item.database.support.PostgresPagingQueryProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.jdbc.core.DataClassRowMapper;
 import org.springframework.stereotype.Component;
 
@@ -41,7 +38,7 @@ import hotspot.batch.jobs.usage_aggregation.repository.ReportUsageHourlyRedisRep
 
 /**
  * Step2: "Bulk Pre-fetching" 기능이 있는 Reader
- * [최종 개선] Modular Partitioning + DB 함수 기반 인덱스 대응 버전
+ * [최종 최적화] Chunk Size 하향 및 비동기 오버헤드 제거를 통한 로그 갭(Gap) 해결 버전
  */
 @Component
 @StepScope
@@ -53,7 +50,6 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
     private final LastWeekUsageService lastWeekUsageService;
     private final ReportUsageAppRedisRepository reportUsageAppRedisRepository;
     private final ReportUsageHourlyRedisRepository reportUsageHourlyRedisRepository;
-    private final TaskExecutor taskExecutor;
     
     private final Queue<UsageMetricsAggregationInput> buffer = new LinkedList<>();
 
@@ -62,28 +58,25 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
             LastWeekUsageService lastWeekUsageService,
             ReportUsageAppRedisRepository reportUsageAppRedisRepository,
             ReportUsageHourlyRedisRepository reportUsageHourlyRedisRepository,
-            @Qualifier("usageMetricsPreFetchExecutor") TaskExecutor taskExecutor,
             @Value("#{stepExecutionContext['gridSize']}") Integer gridSize,
             @Value("#{stepExecutionContext['remainder']}") Integer remainder) {
 
         this.lastWeekUsageService = lastWeekUsageService;
         this.reportUsageAppRedisRepository = reportUsageAppRedisRepository;
         this.reportUsageHourlyRedisRepository = reportUsageHourlyRedisRepository;
-        this.taskExecutor = taskExecutor;
 
-        // 1. 파라미터 설정 (gridSize=8, remainder=0~7)
+        // 1. 파라미터 설정
         Map<String, Object> parameters = Map.of(
                 "status", ReportStatus.PENDING.name(),
                 "gridSize", gridSize,
                 "remainder", remainder);
 
-        // 2. QueryProvider 설정 (함수 기반 인덱스를 타는 MOD 쿼리)
+        // 2. QueryProvider 설정 (Modular 쿼리 유지)
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
         queryProvider.setSelectClause(
             "weekly_report_id, family_id, sub_id, name, week_start_date, week_end_date"
         );
         queryProvider.setFromClause("from weekly_report");
-        // 생성하신 CREATE INDEX idx_weekly_report_mod8 ON weekly_report (MOD(weekly_report_id, 8))를 활용함
         queryProvider.setWhereClause("where report_status = :status and MOD(weekly_report_id, :gridSize) = :remainder");
         queryProvider.setSortKeys(Map.of("weekly_report_id", Order.ASCENDING));
 
@@ -94,7 +87,7 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
                     .queryProvider(queryProvider)
                     .parameterValues(parameters)
                     .pageSize(BatchConstants.CHUNK_SIZE)
-                    .fetchSize(BatchConstants.CHUNK_SIZE)
+                    .fetchSize(BatchConstants.CHUNK_SIZE) // fetchSize 매칭
                     .rowMapper(new DataClassRowMapper<>(ReportBasicInfo.class))
                     .saveState(false)
                     .build();
@@ -111,6 +104,10 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
         return buffer.poll();
     }
 
+    /**
+     * [최종 최적화] 스레드 간 경합을 줄이기 위해 비동기 조율 로직 제거 (Sequential I/O)
+     * 작은 Chunk Size(200) 덕분에 순차 호출이 훨씬 더 안정적이고 빠르게 응답함.
+     */
     private void fillBuffer() throws Exception {
         List<ReportBasicInfo> rawInfos = new ArrayList<>();
         
@@ -127,32 +124,20 @@ public class UsageMetricsReader implements ItemStreamReader<UsageMetricsAggregat
         
         long totalStart = System.currentTimeMillis();
 
-        CompletableFuture<Map<Long, List<DailyAppUsage>>> appUsageFuture = CompletableFuture.supplyAsync(
-            () -> reportUsageAppRedisRepository.findBulkWeeklyAppUsage(subIds, first.weekStartDate(), first.weekEndDate()), 
-            taskExecutor
-        );
+        // 1. 앱 사용량 조회 (Redis Pipeline)
+        Map<Long, List<DailyAppUsage>> appUsageMap = reportUsageAppRedisRepository.findBulkWeeklyAppUsage(
+                subIds, first.weekStartDate(), first.weekEndDate());
 
-        CompletableFuture<Map<Long, List<DailyHourlyUsage>>> hourlyUsageFuture = CompletableFuture.supplyAsync(
-            () -> reportUsageHourlyRedisRepository.findBulkWeeklyHourlyUsage(subIds, first.weekStartDate(), first.weekEndDate()), 
-            taskExecutor
-        );
+        // 2. 시간대별 사용량 조회 (Redis Pipeline)
+        Map<Long, List<DailyHourlyUsage>> hourlyUsageMap = reportUsageHourlyRedisRepository.findBulkWeeklyHourlyUsage(
+                subIds, first.weekStartDate(), first.weekEndDate());
 
-        CompletableFuture<Map<Long, WeeklyReportSnapshot>> lastWeekFuture = CompletableFuture.supplyAsync(
-            () -> {
-                Map<Long, LocalDate> lastReportDateMap = rawInfos.stream()
-                    .collect(Collectors.toMap(ReportBasicInfo::subId, info -> info.weekStartDate().minusDays(7)));
-                return lastWeekUsageService.getBulkSnapshotList(lastReportDateMap);
-            }, 
-            taskExecutor
-        );
+        // 3. 지난주 스냅샷 조회 (DB Bulk)
+        Map<Long, LocalDate> lastReportDateMap = rawInfos.stream()
+            .collect(Collectors.toMap(ReportBasicInfo::subId, info -> info.weekStartDate().minusDays(7)));
+        Map<Long, WeeklyReportSnapshot> lastWeekMap = lastWeekUsageService.getBulkSnapshotList(lastReportDateMap);
 
-        CompletableFuture.allOf(appUsageFuture, hourlyUsageFuture, lastWeekFuture).join();
-
-        Map<Long, List<DailyAppUsage>> appUsageMap = appUsageFuture.get();
-        Map<Long, List<DailyHourlyUsage>> hourlyUsageMap = hourlyUsageFuture.get();
-        Map<Long, WeeklyReportSnapshot> lastWeekMap = lastWeekFuture.get();
-
-        log.info("[Perf-Reader-Final] MOD Partition I/O: {} ms for {} items (Parallel)", 
+        log.debug("[Perf-Reader-Final] FillBuffer Time: {} ms for {} items", 
                  (System.currentTimeMillis() - totalStart), rawInfos.size());
 
         for (ReportBasicInfo info : rawInfos) {
