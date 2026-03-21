@@ -1,0 +1,29 @@
+llm:
+  # Job 실행 관련 상세 설정
+  job:
+    # 한 번에 처리할 데이터의 단위 (Batch Chunk Size)
+    chunk-size: ${LLM_JOB_CHUNK_SIZE:50}
+    # 비동기 처리를 위한 스레드 풀 사이즈 (I/O 병렬성 제어)
+    pool-size: ${LLM_JOB_POOL_SIZE:50}
+    # 병렬 파티션 수 (Grid Size)
+    grid-size: ${LLM_JOB_GRID_SIZE:8}
+    # LLM 호출 실패 시 허용할 최대 건수
+    skip-limit: ${LLM_JOB_SKIP_LIMIT:100}
+    # LLM에게 전달할 프롬프트 템플릿 파일의 리소스 경로
+    prompt-path: ${LLM_JOB_PROMPT_PATH:prompts/llm_feedback_v3.st}
+
+  # OpenAI API 상세 설정
+  openai:
+    model: ${LLM_OPENAI_MODEL:gpt-4o-mini}
+    api-key: ${LLM_OPENAI_API_KEY:dummy-key}
+    temperature: ${LLM_OPENAI_TEMPERATURE:0.7}
+    max-tokens: ${LLM_OPENAI_MAX_TOKENS:1000}
+    prompt-version: ${LLM_OPENAI_PROMPT_VERSION:v3.0}
+  
+  # WebClient 기반 비동기 통신 인프라 상세 설정
+  client:
+    base-url: ${LLM_CLIENT_BASE_URL:https://api.openai.com}
+    connect-timeout-millis: ${LLM_CLIENT_CONNECT_TIMEOUT:5000}
+    read-timeout-millis: ${LLM_CLIENT_READ_TIMEOUT:60000}
+    max-connections: ${LLM_CLIENT_MAX_CONNECTIONS:500}
+    pending-acquire-max-count: ${LLM_CLIENT_PENDING_MAX:1000}

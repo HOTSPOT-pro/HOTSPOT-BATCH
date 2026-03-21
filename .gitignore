@@ -35,3 +35,10 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### CLI ###
+AGENTS.md
+GEMINI.md
+
+### Environment ###
+.env

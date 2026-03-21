@@ -1,0 +1,43 @@
+spring:
+  datasource:
+    main:
+      driver-class-name: org.postgresql.Driver
+      jdbc-url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DATABASE:hotspot}?reWriteBatchedStatements=true
+      username: ${POSTGRES_USER}
+      password: ${POSTGRES_PASSWORD}
+      hikari:
+        pool-name: HikariPool-main
+        maximum-pool-size: 20
+        max-lifetime: 300000
+        validation-timeout: 5000
+        keepalive-time: 30000
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: true

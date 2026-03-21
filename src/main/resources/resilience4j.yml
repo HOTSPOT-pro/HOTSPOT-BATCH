@@ -1,0 +1,29 @@
+resilience4j:
+  # 외부 API 호출 시의 트래픽 제어(스로틀링) 설정
+  ratelimiter:
+    instances:
+      llmFeedbackLimiter:
+        # 1초(limit-refresh-period)당 허용할 최대 요청 수 (OpenAI RPM 제한 대응)
+        limit-for-period: 15
+        # 제한이 초기화되는 주기
+        limit-refresh-period: 1s
+        # 제한에 걸렸을 때 스레드가 포기하지 않고 큐에서 대기할 수 있는 최대 시간 (Batch 환경 고려)
+        timeout-duration: 60s
+
+  # 일시적 장애(네트워크 순단, 서버 과부하 등)에 대한 재시도 전략 설정
+  retry:
+    instances:
+      llmFeedbackRetry:
+        # 최대 재시도 횟수 (최초 시도 포함 총 3회)
+        max-attempts: 3
+        # 재시도 사이의 기본 대기 시간
+        wait-duration: 2s
+        # 지수 백오프(Exponential Backoff) 활성화: 재시도 간격을 점진적으로 늘림 (2s -> 4s -> 8s)
+        enable-exponential-backoff: true
+        # 지수 백오프의 배수값
+        exponential-backoff-multiplier: 2
+        # 재시도를 수행할 대상 예외 목록 (429 Too Many Requests, 503 Service Unavailable, 타임아웃 등)
+        retry-exceptions:
+          - org.springframework.web.reactive.function.client.WebClientResponseException$TooManyRequests
+          - org.springframework.web.reactive.function.client.WebClientResponseException$ServiceUnavailable
+          - java.util.concurrent.TimeoutException

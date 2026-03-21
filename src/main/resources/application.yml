@@ -2,6 +2,24 @@ project:
   name: Hotspot Batch
   version: 1.0.0
 
+batch:
+  log-aggregation:
+    scheduler:
+      enabled: true
+      keep-alive: true
+      initial-delay-ms: 5000
+      fixed-delay-ms: 60000
+  weekly-report:
+    scheduler:
+      enabled: true
+      keep-alive: true
+      cron: ${WEEKLY_REPORT_CRON:0 30 0 * * *}
+  crypto-key:
+    scheduler:
+      enabled: true
+      keep-alive: true
+      cron: ${CRYPTO_KEY_ROTATION_CRON:0 0 3 * * *}
+
 spring:
   application:
     name: batch
@@ -18,7 +36,12 @@ spring:
 
   config:
     import:
-      - classpath:postgres.yml
+      - classpath:postgres-batch.yml
+      - classpath:redis.yml
+      - classpath:postgres-main.yml
+      - classpath:resilience4j.yml
+      - classpath:llm-config.yml
+      - classpath:crypto-key.yml
 
 ---
 spring:

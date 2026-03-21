@@ -1,0 +1,15 @@
+spring:
+  data:
+    redis:
+      password: ${REDIS_PASSWORD}
+      timeout: 30s
+      sentinel:
+        master: ${REDIS_SENTINEL_MASTER:mymaster}
+        nodes: ${REDIS_SENTINEL_NODES}
+      lettuce:
+        shutdown-timeout: 100ms
+        pool:
+          max-active: 50
+          max-idle: 20
+          min-idle: 5
+          max-wait: 1s
