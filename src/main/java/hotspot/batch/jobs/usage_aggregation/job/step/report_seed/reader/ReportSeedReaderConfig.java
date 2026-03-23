@@ -51,7 +51,8 @@ public class ReportSeedReaderConfig {
                  WHERE fr.receive_day = :receiveDay 
                    AND fr.is_active = true 
                    AND m.is_deleted = false 
-                   AND s.is_deleted = false) AS target_data
+                   AND s.is_deleted = false
+                   AND fs.family_role = 'CHILD') AS target_data
                 """);
         
         queryProvider.setSortKeys(Map.of("sub_id", Order.ASCENDING));
