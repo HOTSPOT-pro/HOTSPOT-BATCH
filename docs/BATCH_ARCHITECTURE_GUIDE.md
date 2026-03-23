@@ -41,7 +41,7 @@
 
 ## 2.2 usageAggregationJob
 
-방식: 2-step (Tasklet + Chunk)
+방식: 2-step (Chunk + Partitioned Chunk)
 
 역할:
 
@@ -50,9 +50,10 @@
 
 현재 상태:
 
-- Step1 구현됨
-- Step2 구성은 존재하지만 reader/processor/writer는 skeleton
-- `UsageAggregationJobConfig`에서 Step2 연결은 주석 처리 상태
+- Step1 구현 완료
+- Step2 구현 완료
+- `UsageAggregationJobConfig`에서 Step1 -> Step2 순으로 연결됨
+- 상세 구조는 `docs/WEEKLY_AI_REPORT_ARCHITECTURE.md` 참고
 
 ## 2.3 cryptoKeyRotationJob
 
@@ -72,9 +73,10 @@
 ## 3. 구현 우선순위 권장
 
 1. `familyRemoveJob` 통합 테스트 및 실패 케이스 검증
-2. `usageAggregationJob` Step2 실구현 및 Step 연결 활성화
+2. `usageAggregationJob` 성능 계측 고도화 및 인덱스/운영 튜닝 정리
 3. `cryptoKeyRotationJob` 단계 분리(activate/reencrypt/retire)
-4. `redisDualWriteJob` Job 골격 생성 및 실행 파이프라인 연결
+4. `llmFeedbackJob` 실제 LLM API 연결 방식과 실행 설정 정리
+5. `redisDualWriteJob` Job 골격 생성 및 실행 파이프라인 연결
 
 ---
 
@@ -83,4 +85,3 @@
 1. 스케줄링은 EventBridge + ECS one-shot 실행 우선
 2. 동일 파라미터 재실행 시 idempotent 보장
 3. 실패 시 상태/로그로 재처리 가능해야 함
-
